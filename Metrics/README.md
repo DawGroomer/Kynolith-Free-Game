@@ -1,3 +1,3 @@
 # Metrics
 
-Boundary for task event records and their schemas.
+Task event records, the event schema, and schema fixtures.

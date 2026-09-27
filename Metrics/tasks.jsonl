@@ -1,2 +1,2 @@
 {"task_id":"KG-FREE-000","event":"plan_approved","version":"v0.11","approver":"Will Harris","actor":"Will Harris","date":"2026-09-27","words":"Repo has been created and I approve the plan","measured_or_estimated":"measured"}
-{"task_id":"KG-FREE-000-1","event":"pr_merged_before_review","date":"2026-09-27","merge_commit":"67bfcb6","merged_at":"2026-09-27T23:32:43Z","measured_or_estimated":"measured"}
+{"task_id":"KG-FREE-000-1","event":"pr_merged_before_review","actor":"Will Harris","date":"2026-09-27","merge_commit":"67bfcb6b1231591e733edd8c798532b6df145d03","merged_at":"2026-09-27T23:32:43Z","measured_or_estimated":"measured"}

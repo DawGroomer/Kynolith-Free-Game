@@ -8,6 +8,7 @@
     "task_id",
     "event",
     "date",
+    "actor",
     "measured_or_estimated"
   ],
   "properties": {
@@ -76,8 +77,10 @@
       "minLength": 1
     },
     "files_inspected": {
-      "type": "string",
-      "minLength": 1
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "changes_proposed": {
       "type": "string",
@@ -88,45 +91,52 @@
       "minLength": 1
     },
     "human_corrections": {
-      "type": "string",
-      "minLength": 1
+      "type": "integer",
+      "minimum": 0
     },
     "tests": {
-      "type": "string",
-      "minLength": 1
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "failures": {
-      "type": "string",
-      "minLength": 1
+      "type": "integer",
+      "minimum": 0
     },
     "retries": {
-      "type": "string",
-      "minLength": 1
+      "type": "integer",
+      "minimum": 0
     },
     "review_findings": {
-      "type": "string",
-      "minLength": 1
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "accepted_rejected": {
       "type": "string",
-      "minLength": 1
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
     },
-    "time": {
-      "type": "string",
-      "minLength": 1
+    "time_minutes": {
+      "type": "integer",
+      "minimum": 0
     },
     "token_cost": {
-      "type": "string",
-      "minLength": 1
+      "type": "integer",
+      "minimum": 0
     },
     "merge_commit": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^[0-9a-f]{40}$"
     },
     "merged_at": {
       "type": "string",
-      "minLength": 1,
-      "format": "date-time"
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
     }
   }
 }

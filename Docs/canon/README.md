@@ -1,3 +1,3 @@
 # Canon
 
-Boundary for CANON documentation approved by Will Harris. No canon content is included in PR 000-1.
+Canon documentation. All lore is authored by Will. Only approved canon content is public.

@@ -10,8 +10,6 @@ KYNO is earned in play only. It has no cash value, cannot be traded, has no wall
 
 Only CANON items approved by Will Harris are canon. CI logs and PR attachments are public.
 
-This PR creates repository structure only. It contains no gameplay code.
-
 ## Folder layout
 
 | Path | Purpose |
