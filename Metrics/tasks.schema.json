@@ -8,7 +8,6 @@
     "task_id",
     "event",
     "date",
-    "actor",
     "measured_or_estimated"
   ],
   "properties": {
@@ -22,7 +21,8 @@
     },
     "date": {
       "type": "string",
-      "format": "date"
+      "format": "date",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
     },
     "actor": {
       "type": "string",
@@ -54,7 +54,79 @@
     "notes": {
       "type": "string",
       "minLength": 1
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "starting_repo_state": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "files_inspected": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changes_proposed": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changes_made": {
+      "type": "string",
+      "minLength": 1
+    },
+    "human_corrections": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tests": {
+      "type": "string",
+      "minLength": 1
+    },
+    "failures": {
+      "type": "string",
+      "minLength": 1
+    },
+    "retries": {
+      "type": "string",
+      "minLength": 1
+    },
+    "review_findings": {
+      "type": "string",
+      "minLength": 1
+    },
+    "accepted_rejected": {
+      "type": "string",
+      "minLength": 1
+    },
+    "time": {
+      "type": "string",
+      "minLength": 1
+    },
+    "token_cost": {
+      "type": "string",
+      "minLength": 1
+    },
+    "merge_commit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "merged_at": {
+      "type": "string",
+      "minLength": 1,
+      "format": "date-time"
     }
   }
 }
-

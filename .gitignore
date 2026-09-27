@@ -17,3 +17,17 @@ android/build/
 *.dbg
 *.map
 
+# Signing keys and credentials
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.pem
+*.key
+export_credentials.cfg
+
+# Build outputs
+build/
+*.apk
+*.aab
+*.ipa

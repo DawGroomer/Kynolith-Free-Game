@@ -8,7 +8,7 @@ The game is mobile only: Android and iOS. It uses Godot 4.7.x, GDScript only, an
 
 KYNO is earned in play only. It has no cash value, cannot be traded, has no wallet or blockchain, and is never sold.
 
-Only CANON items approved by Will Harris are canon. Lore, UNAPPROVED drafts, CI logs, and PR attachments are public.
+Only CANON items approved by Will Harris are canon. CI logs and PR attachments are public.
 
 This PR creates repository structure only. It contains no gameplay code.
 
@@ -23,4 +23,3 @@ This PR creates repository structure only. It contains no gameplay code.
 | `Tools/` | Development tool boundary. |
 | `Metrics/` | Task event records and schema. |
 | `game/` | Minimal Godot project boundary. |
-
