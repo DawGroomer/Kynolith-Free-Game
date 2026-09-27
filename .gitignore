@@ -1,0 +1,19 @@
+# Godot 4 generated files
+.godot/
+
+# Export output
+export/
+exports/
+
+# Android build output
+android/build/
+
+# Debug and symbol artifacts
+*.pdb
+*.dmp
+*.sym
+*.symbols
+*.debug
+*.dbg
+*.map
+
