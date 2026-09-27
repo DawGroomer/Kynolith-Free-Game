@@ -1,0 +1,13 @@
+; Engine configuration file.
+; PR 000-1 contains only the minimal project configuration.
+config_version=5
+
+[application]
+
+config/name="Kynolith Free Game"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+

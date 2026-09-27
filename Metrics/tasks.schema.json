@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kynolith task event",
+  "description": "Schema for one task event line.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "event",
+    "date",
+    "actor",
+    "measured_or_estimated"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "measured_or_estimated": {
+      "type": "string",
+      "enum": [
+        "measured",
+        "estimated"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approver": {
+      "type": "string",
+      "minLength": 1
+    },
+    "words": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approval_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "notes": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
+
