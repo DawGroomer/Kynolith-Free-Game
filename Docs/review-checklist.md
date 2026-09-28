@@ -7,8 +7,9 @@ Use this before sign-off. The approved plan is KG-FREE-000 v0.11. Will Harris ap
 - [ ] Tests assert the rule that fired.
 - [ ] No invented metrics or log lines.
 - [ ] No lore or story text was written by an agent.
-- [ ] Any change under `.github/` has Will Harris's written sign-off.
-- [ ] Do not merge until the Challenger and the Debugger sign off and Will Harris gives written go-ahead.
+- [ ] Merge rule, quoted from Will Harris at 8:06 PM CT on 2026-09-27: "The team can merge PRs inside an approved plan once the Challenger and Debugger sign off. Tell me after each merge." This covers `.github/` files. Both sign-offs must be on the same head. Will is told after each merge.
+- [ ] New plans, canon, lore, and feature decisions still need Will's written approval.
+- [ ] Any change under `.github/workflows/` also needs the Security & Governance Auditor's review before it merges. Will Harris wrote in the Dev Team at 3:19 AM CT on 2026-09-28: "yes that is the auditors pupose to catch the hallucinations and straying."
 
 ## Branch protection
 
