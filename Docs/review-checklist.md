@@ -14,7 +14,9 @@ Use this before sign-off. The approved plan is KG-FREE-000 v0.11. Will Harris ap
 
 The plan's decision is that branch protection is not checked in CI. `GITHUB_TOKEN` lacks Administration read, and no admin token exists.
 
-The Challenger verifies protection at setup and at each release:
+Branch protection can't be read by any agent. `GET /branches/main/protection` returns HTTP 403.
+
+The evidence for these protection settings is Will Harris's screenshot of the saved rule for `main`, taken at setup and at each release. The Challenger compares that screenshot with this list:
 
 - Pull requests are required.
 - Approvals = 0.
