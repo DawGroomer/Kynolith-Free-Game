@@ -1,5 +1,4 @@
 ; Engine configuration file.
-; PR 000-1 contains only the minimal project configuration.
 config_version=5
 
 [application]

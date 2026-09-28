@@ -79,7 +79,8 @@
     "files_inspected": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "changes_proposed": {
@@ -97,7 +98,8 @@
     "tests": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "failures": {
@@ -111,7 +113,8 @@
     "review_findings": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "minLength": 1
       }
     },
     "accepted_rejected": {
