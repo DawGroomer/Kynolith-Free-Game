@@ -23,5 +23,5 @@ Only approved canon content, CI logs, and PR attachments are public.
 | `Docs/plans/` | Project plans. |
 | `Docs/adr/` | Records of architecture decisions. |
 | `Tools/` | Development tools used to check and maintain the project. |
-| `Metrics/` | Task event records, the event schema, and schema fixtures. |
+| `Metrics/` | Task event records, the event schema, and schema fixtures. In Metrics/tasks.jsonl, `date` is the US Central calendar day and `merged_at` is a UTC timestamp, so they can differ. |
 | `game/` | Godot 4.7.x project for the mobile game. |
