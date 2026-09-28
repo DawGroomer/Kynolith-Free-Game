@@ -12,45 +12,81 @@ ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "Tools" / "canon_validator.py"
 FIX = ROOT / "Tools" / "tests" / "fixtures"
 BASE = "8cf25ae349e7c0a7c1f344dcb3af5cd6188014a6"
+BASE_ARG = ["--base", BASE]
 
 PASS_CASES = [
-    ("pass_unapproved.json", []),
-    ("pass_approved.json", []),
+    ("pass_unapproved.json", BASE_ARG),
+    ("pass_approved.json", BASE_ARG),
     (
         "pass_append.json",
         ["--metrics", str(FIX / "metrics_appended.jsonl"), "--base", BASE],
     ),
 ]
 
+# name, rule, extra args, expected FAIL count, required field tokens
 FAIL_CASES = [
-    ("fail_ref_past_end.json", "approval_ref_line_out_of_range", []),
-    ("fail_ref_line_zero.json", "approval_ref_line_out_of_range", []),
-    ("fail_ref_line_4.json", "approval_ref_event_not_approval", []),
-    ("fail_ref_line_3.json", "approval_ref_event_not_approval", []),
-    ("fail_tag_unapproved.json", "approval_ref_required", []),
-    ("fail_tag_unaproved.json", "approval_ref_required", []),
-    ("fail_tag_empty.json", "canon_tag_empty", []),
-    ("fail_tag_missing.json", "canon_tag_missing", []),
-    ("fail_no_echo.json", "approval_ref_malformed", []),
+    ("fail_ref_past_end.json", "approval_ref_line_out_of_range", BASE_ARG, 1, []),
+    ("fail_ref_line_zero.json", "approval_ref_line_out_of_range", BASE_ARG, 1, []),
+    ("fail_ref_line_4.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
+    ("fail_ref_line_3.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
+    ("fail_ref_line_6.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
+    ("fail_ref_line_7.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
+    ("fail_tag_unapproved.json", "approval_ref_required", BASE_ARG, 1, []),
+    ("fail_tag_unaproved.json", "approval_ref_required", BASE_ARG, 1, []),
+    ("fail_tag_empty.json", "canon_tag_empty", BASE_ARG, 1, []),
+    ("fail_tag_missing.json", "canon_tag_missing", BASE_ARG, 1, []),
+    ("fail_no_echo.json", "approval_ref_malformed", BASE_ARG, 1, []),
+    ("fail_text_canon.json", "text_not_placeholder", BASE_ARG, 1, ["text"]),
+    ("fail_text_unapproved.json", "text_not_placeholder", BASE_ARG, 1, ["text"]),
+    ("fail_id_spaces.json", "schema_invalid", BASE_ARG, 1, ["id"]),
     (
         "fail_approver.json",
         "approval_ref_approver_mismatch",
         ["--metrics", str(FIX / "metrics_approver.jsonl"), "--base", BASE],
+        1,
+        [],
     ),
     (
         "fail_words.json",
         "approval_ref_words_empty",
         ["--metrics", str(FIX / "metrics_words.jsonl"), "--base", BASE],
+        1,
+        [],
     ),
     (
         "fail_append_only.json",
         "metrics_line_not_byte_identical",
         ["--metrics", str(FIX / "metrics_edited.jsonl"), "--base", BASE],
+        1,
+        ["line_2"],
+    ),
+    (
+        "fail_append_deleted.json",
+        "metrics_line_not_byte_identical",
+        ["--metrics", str(FIX / "metrics_deleted.jsonl"), "--base", BASE],
+        1,
+        ["line_5"],
+    ),
+    (
+        "fail_append_swapped.json",
+        "metrics_line_not_byte_identical",
+        ["--metrics", str(FIX / "metrics_swapped.jsonl"), "--base", BASE],
+        2,
+        ["line_1", "line_2"],
+    ),
+    (
+        "fail_base.json",
+        "metrics_base_unreadable",
+        ["--base", "deadbeef"],
+        1,
+        ["Metrics/tasks.jsonl"],
     ),
 ]
 
 
 def run(args: list[str]) -> subprocess.CompletedProcess[str]:
+    if "--base" not in args:
+        raise SystemExit("missing explicit --base")
     cmd = [sys.executable, str(VALIDATOR), *args]
     print("COMMAND", " ".join(cmd))
     proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
@@ -105,6 +141,9 @@ def metrics_arg(extra: list[str]) -> Path | None:
 
 def main() -> int:
     problems: list[str] = []
+    approved = json.loads((FIX / "pass_approved.json").read_text(encoding="utf-8"))
+    if approved.get("text") != "PLACEHOLDER_TEXT_001":
+        problems.append("pass_approved.json text is not the placeholder")
 
     for name, extra in PASS_CASES:
         path = FIX / name
@@ -121,18 +160,20 @@ def main() -> int:
             if value in blob:
                 problems.append(f"{name} echoed a field value")
 
-    for name, rule, extra in FAIL_CASES:
+    for name, rule, extra, count, fields in FAIL_CASES:
         path = FIX / name
         proc = run([str(path), *extra])
         fail_lines = [line for line in proc.stdout.splitlines() if line.startswith("FAIL ")]
         if proc.returncode == 0:
             problems.append(f"{name} should fail")
-        if fail_lines != [line for line in fail_lines if f"rule={rule}" in line]:
-            problems.append(f"{name} expected rule {rule}")
-        if len(fail_lines) != 1:
-            problems.append(f"{name} expected one FAIL line, got {len(fail_lines)}")
-        elif f"rule={rule}" not in fail_lines[0]:
-            problems.append(f"{name} FAIL line missing rule {rule}")
+        if len(fail_lines) != count:
+            problems.append(f"{name} expected {count} FAIL lines, got {len(fail_lines)}")
+        for line in fail_lines:
+            if f"rule={rule}" not in line:
+                problems.append(f"{name} expected rule {rule}")
+        for field in fields:
+            if not any(f"field={field}" in line for line in fail_lines):
+                problems.append(f"{name} missing field {field}")
         if proc.stderr:
             problems.append(f"{name} wrote stderr")
         canon = json.loads(path.read_text(encoding="utf-8"))
@@ -150,10 +191,35 @@ def main() -> int:
                 problems.append("no-echo output missing field name")
         if name == "fail_append_only.json" and "pr_merged_before_reviewX" in blob:
             problems.append("append-only output echoed the edited line")
+        if name == "fail_id_spaces.json":
+            if "BAD ID" in blob:
+                problems.append("schema output printed the bad id")
+            if "entry=-" not in proc.stdout:
+                problems.append("schema output did not use entry=-")
+        if name == "fail_text_canon.json" and "Any real sentence." in blob:
+            problems.append("text rule printed the text value")
+        if name == "fail_text_unapproved.json" and "Any real sentence." in blob:
+            problems.append("text rule printed the text value")
 
-    data_proc = run([])
-    if data_proc.returncode != 0 or data_proc.stdout.strip() != "OK":
-        problems.append("real Data/ folder did not pass")
+    non_json = run([str(FIX / "not_json" / "entry.txt"), "--base", BASE])
+    non_json_fails = [line for line in non_json.stdout.splitlines() if line.startswith("FAIL ")]
+    if non_json.returncode == 0 or non_json_fails != [
+        "FAIL rule=data_file_not_json entry=- field=entry.txt"
+    ]:
+        problems.append("non-json fixture did not fail data_file_not_json")
+    if "PLACEHOLDER_TEXT_001" in non_json.stdout + non_json.stderr:
+        problems.append("non-json fixture echoed file text")
+    if non_json.stderr:
+        problems.append("non-json fixture wrote stderr")
+
+    data_proc = run(["--base", BASE])
+    data_fails = [line for line in data_proc.stdout.splitlines() if line.startswith("FAIL ")]
+    if data_proc.returncode == 0 or data_fails != [
+        "FAIL rule=data_file_not_json entry=- field=README.md"
+    ]:
+        problems.append("real Data/ folder did not fail on README.md")
+    if "Structured project data." in data_proc.stdout + data_proc.stderr:
+        problems.append("Data/ scan echoed README text")
     if data_proc.stderr:
         problems.append("real Data/ run wrote stderr")
 

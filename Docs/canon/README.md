@@ -6,7 +6,9 @@ Canon documentation. All lore is authored by Will. Only approved canon content i
 
 Narrative text and canon fields live only in Data/ JSON. Engine Resources are generated from that JSON later. This task does not generate Resources and does not add gameplay code.
 
-Each canon entry is one JSON object in a `.json` file under `Data/`, outside `Data/schemas/`. The fields are `id`, `canon_tag`, `text`, and, when approval is required, `approval_ref`. The `text` field holds the narrative text. Real canon entries are written by Will.
+Each canon entry is one JSON object in a file under `Data/`, outside `Data/schemas/`. The file name must end in lowercase `.json`. Any other file fails `data_file_not_json`. `Data/README.md` fails that rule, so a scan of `Data/` fails until that file is moved. The fields are `id`, `canon_tag`, `text`, and, when approval is required, `approval_ref`. `id` matches `^[A-Z0-9_]+$`.
+
+Every `text` value must match `PLACEHOLDER_` plus uppercase letters, digits, and underscores. The validator rule is `text_not_placeholder`. It applies to every entry, including `UNAPPROVED`. This is an interim rule. It stays until Will decides whether each entry needs his approval before it enters the public repo, and until a separate task adds the brand check. Real canon entries are written by Will.
 
 ## Tags and approval
 
@@ -31,4 +33,4 @@ The Challenger checks on every pull request that the metrics event matches Will'
 
 ## Metrics lines already in the log
 
-The validator takes `--base` (default `origin/main`). A line of `Metrics/tasks.jsonl` at that base must be byte-identical at the same position in the file being checked. Appending new lines is allowed. Editing, reordering, or deleting an existing line fails. Task 000-4 owns the full metrics append-only check and may take this guard over.
+The validator takes `--base` (default `origin/main`). That default requires `origin/main` to be fetched already. A shallow CI checkout needs a fetch of `origin/main` before the validator runs. A line of `Metrics/tasks.jsonl` at that base must be byte-identical at the same position in the file being checked. Appending new lines is allowed. Editing, reordering, or deleting an existing line fails. Task 000-4 owns the full metrics append-only check and may take this guard over.

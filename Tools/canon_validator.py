@@ -25,7 +25,11 @@ APPROVAL_EVENTS = frozenset({"plan_approved"})
 UNAPPROVED = "UNAPPROVED"
 APPROVER_NAME = "Will Harris"
 REF_RE = re.compile(r"^Metrics/tasks\.jsonl#L(0|[1-9][0-9]*)$")
+ID_RE = re.compile(r"^[A-Z0-9_]+$")
+# Interim rule until Will decides per-entry approval and the brand check.
+TEXT_RE = re.compile(r"^PLACEHOLDER_[A-Z0-9_]+$")
 
+RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
 RULE_CANON_TAG_MISSING = "canon_tag_missing"
 RULE_CANON_TAG_EMPTY = "canon_tag_empty"
 RULE_APPROVAL_REF_REQUIRED = "approval_ref_required"
@@ -41,6 +45,7 @@ RULE_SCHEMA_INVALID = "schema_invalid"
 RULE_JSON_INVALID = "json_invalid"
 RULE_METRICS_JSON_INVALID = "metrics_json_invalid"
 RULE_DATA_UNREADABLE = "data_unreadable"
+RULE_DATA_FILE_NOT_JSON = "data_file_not_json"
 
 
 def repo_root() -> Path:
@@ -58,7 +63,7 @@ def report(rule: str, entry: str, field: str) -> str:
 def entry_id(instance: object) -> str:
     if isinstance(instance, dict):
         value = instance.get("id")
-        if isinstance(value, str) and value:
+        if isinstance(value, str) and ID_RE.fullmatch(value):
             return value
     return "-"
 
@@ -149,6 +154,9 @@ def check_entry(
     ]
     if schema_failures:
         return schema_failures
+    text = instance.get("text")
+    if not isinstance(text, str) or TEXT_RE.fullmatch(text) is None:
+        return [report(RULE_TEXT_NOT_PLACEHOLDER, entry, "text")]
     if "canon_tag" not in instance:
         return [report(RULE_CANON_TAG_MISSING, entry, "canon_tag")]
     tag = instance.get("canon_tag")
@@ -167,20 +175,29 @@ def check_entry(
     return [report(rule, entry, "approval_ref")]
 
 
+def classify_file(path: Path) -> tuple[list[Path], list[str]]:
+    if path.name.endswith(".json"):
+        return [path], []
+    return [], [report(RULE_DATA_FILE_NOT_JSON, "-", path.name)]
+
+
 def entry_files(path: Path) -> tuple[list[Path], list[str]]:
     if not path.exists():
         return [], [report(RULE_DATA_UNREADABLE, "-", "$")]
     if path.is_file():
-        return [path], []
-    files = []
-    for candidate in sorted(path.rglob("*.json")):
+        return classify_file(path)
+    files: list[Path] = []
+    failures: list[str] = []
+    for candidate in sorted(path.rglob("*")):
         if not candidate.is_file():
             continue
         relative = candidate.relative_to(path)
         if "schemas" in relative.parts:
             continue
-        files.append(candidate)
-    return files, []
+        found, errors = classify_file(candidate)
+        files.extend(found)
+        failures.extend(errors)
+    return files, failures
 
 
 def check_file(
