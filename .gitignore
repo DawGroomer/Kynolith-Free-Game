@@ -5,9 +5,6 @@
 export/
 exports/
 
-# Android build output
-android/build/
-
 # Debug and symbol artifacts
 *.pdb
 *.dmp
@@ -31,3 +28,6 @@ build/
 *.apk
 *.aab
 *.ipa
+
+# Android build output
+game/android/build/

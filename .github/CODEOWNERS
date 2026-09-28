@@ -1,0 +1,6 @@
+# CODEOWNERS is documentation only here, because approvals are set to 0 and code-owner review is not enforced.
+
+.github/ @DawGroomer
+Tools/ @DawGroomer
+Data/schemas/ @DawGroomer
+Docs/canon/ @DawGroomer
