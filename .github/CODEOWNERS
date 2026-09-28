@@ -1,4 +1,4 @@
-# CODEOWNERS is documentation only here, because approvals are set to 0 and code-owner review is not enforced.
+# Documentation only. Code-owner review is not a gate: agents act under @DawGroomer, and protection settings are unverified pending Will's screenshot.
 
 .github/ @DawGroomer
 Tools/ @DawGroomer
