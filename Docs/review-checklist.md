@@ -20,7 +20,7 @@ The evidence for these protection settings is Will Harris's screenshot of the sa
 
 - Pull requests are required.
 - Approvals = 0.
-- Required checks are set.
+- Required checks are set: not applicable until 000-5. CI arrives in 000-5, and required checks get turned on after that.
 - `enforce_admins` is on.
 - Force push is blocked.
 - Deletion is blocked.

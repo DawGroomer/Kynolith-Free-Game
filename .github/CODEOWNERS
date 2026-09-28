@@ -1,4 +1,4 @@
-# Documentation only. Code-owner review is not a gate: agents act under @DawGroomer, and protection settings are unverified pending Will's screenshot.
+# Documentation only. Code-owner review is not a gate: agents act under @DawGroomer. Branch protection on main was verified from Will's screenshots: his 2026-09-27 7:55 PM CT screenshot of the main branch protection rule (Require a pull request before merging ON, Require approvals OFF, status checks OFF, Do not allow bypassing ON, force pushes OFF, deletions OFF) and his 8:01 PM CT Rulesets page screenshot showing "You haven't created any rulesets".
 
 .github/ @DawGroomer
 Tools/ @DawGroomer
