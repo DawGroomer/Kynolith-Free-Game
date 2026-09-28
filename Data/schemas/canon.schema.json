@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Kynolith canon entry",
+  "description": "One canon or narrative entry stored in Data/ JSON. canon_tag is a string. The only tag that may omit approval_ref is the exact value UNAPPROVED. Other tag values are not enumerated. approval_ref resolution is checked by Tools/canon_validator.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canon_tag": {
+      "type": "string"
+    },
+    "approval_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text": {
+      "type": "string",
+      "description": "Narrative text for this entry."
+    }
+  }
+}
