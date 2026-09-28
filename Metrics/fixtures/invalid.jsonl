@@ -1,0 +1,13 @@
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-13-45","measured_or_estimated":"measured"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-9-27","measured_or_estimated":"measured"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-02-30","measured_or_estimated":"measured"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","merged_at":"yesterday"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","merged_at":"2026-09-27 23:32"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","not_a_field":"x"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","retries":"lots"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","token_cost":"lots"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","token_cost":-1}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","accepted_rejected":"maybe"}
+{"task_id":"KG-FREE-000-1","event":"fixture","date":"2026-09-27","measured_or_estimated":"measured"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","merge_commit":"67bfcb6"}
+{"task_id":"KG-FREE-000-1","event":"fixture","actor":"Will Harris","date":"2026-09-27","measured_or_estimated":"measured","files_inspected":[""]}

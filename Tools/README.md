@@ -1,4 +1,3 @@
 # Tools
 
-Boundary for development tools. No tools are included in PR 000-1.
-
+Development tools used to check and maintain the project.

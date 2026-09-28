@@ -22,7 +22,8 @@
     },
     "date": {
       "type": "string",
-      "format": "date"
+      "format": "date",
+      "pattern": "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$"
     },
     "actor": {
       "type": "string",
@@ -54,7 +55,91 @@
     "notes": {
       "type": "string",
       "minLength": 1
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "starting_repo_state": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "files_inspected": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "changes_proposed": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changes_made": {
+      "type": "string",
+      "minLength": 1
+    },
+    "human_corrections": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "failures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "retries": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "review_findings": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "accepted_rejected": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "rejected"
+      ]
+    },
+    "time_minutes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "token_cost": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "merge_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "merged_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
     }
   }
 }
-
