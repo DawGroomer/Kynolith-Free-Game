@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +18,7 @@ BASE = "8cf25ae349e7c0a7c1f344dcb3af5cd6188014a6"
 BASE_PROTECTED = "3086759cd3349ccbd6dedbc0866f194aae3c1edb"
 BASE_ARG = ["--base", BASE]
 PROTECTED = ["--base", BASE_PROTECTED]
+HEAD_ARG = ["--base", "HEAD"]
 OTHER_METRICS = [
     "--metrics",
     str(FIX / "metrics_other_task.jsonl"),
@@ -31,7 +33,6 @@ PASS_CASES = [
         "pass_append.json",
         ["--metrics", str(FIX / "metrics_appended.jsonl"), "--base", BASE],
     ),
-    ("pass_book.json", PROTECTED),
 ]
 
 # name, rule, extra args, expected FAIL count, required field tokens
@@ -98,10 +99,10 @@ FAIL_CASES = [
         1,
         ["Metrics/tasks.jsonl"],
     ),
-    ("fail_pages_missing.json", "source_pages_out_of_range", PROTECTED, 1, ["source_pages"]),
-    ("fail_pages_7.json", "source_pages_out_of_range", PROTECTED, 1, ["source_pages"]),
-    ("fail_pages_21.json", "source_pages_out_of_range", PROTECTED, 1, ["source_pages"]),
-    ("fail_pages_mixed.json", "source_pages_out_of_range", PROTECTED, 1, ["source_pages"]),
+    ("fail_pages_missing.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
+    ("fail_pages_7.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
+    ("fail_pages_21.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
+    ("fail_pages_mixed.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
     ("fail_brand_caps.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_phrase.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_split.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
@@ -115,6 +116,34 @@ FAIL_CASES = [
     ("fail_brand_id.json", "brand_name_blocked", PROTECTED, 1, ["id"]),
     ("fail_book_other.json", "approval_ref_task_mismatch", OTHER_METRICS, 1, ["approval_ref"]),
     ("fail_book_near.json", "approval_ref_task_mismatch", OTHER_METRICS, 1, ["approval_ref"]),
+    ("fail_brand_placeholder.json", "brand_name_blocked", PROTECTED, 1, ["canon_tag"]),
+    ("fail_brand_id_suffix.json", "brand_name_blocked", PROTECTED, 1, ["id"]),
+    ("fail_tag_long.json", "schema_invalid", PROTECTED, 1, ["canon_tag"]),
+    ("fail_tag_pattern.json", "schema_invalid", PROTECTED, 1, ["canon_tag"]),
+    ("fail_id_long.json", "schema_invalid", PROTECTED, 1, ["id"]),
+    ("fail_placeholder_long.json", "placeholder_too_long", PROTECTED, 1, ["text"]),
+    ("fail_brand_homoglyph.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_fullwidth.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_math.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_combining.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_hyphen.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_hyphen_nl.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_dotted.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_es.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_suffix_x.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_suffix_digit.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_zwsp.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_zwnj.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_zwj.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_bom.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_wj.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_shy.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_cr.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_ls.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_ps.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_rtl.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_dup_text.json", "json_duplicate_key", PROTECTED, 1, ["text"]),
+    ("fail_dup_pages.json", "json_duplicate_key", PROTECTED, 1, ["source_pages"]),
 ]
 
 # Validator stdout must not contain these. Entry ids are chosen so they do not.
@@ -217,6 +246,18 @@ def check_brand_probes(problems: list[str]) -> None:
         "Nikes",
         "Nike's",
         "Nike\u2019s",
+        "cortezes",
+        "Ni-ke",
+        "N.i.k.e",
+        "Ni-\nke",
+        "Nike_x",
+        "Nike7",
+        "NIKE_SCENE",
+        "N" + "\u0456" + "k" + "\u0435",
+        "C" + "\u03bf" + "rtez",
+        "".join(chr(0xFF21 + ord(char) - ord("A")) for char in "NIKE"),
+        "".join(chr(0x1D41A + (ord(char) - ord("a"))) for char in "nike"),
+        "Ni\u0301ke",
     ]
     clear = [
         "live",
@@ -226,9 +267,25 @@ def check_brand_probes(problems: list[str]) -> None:
         "the show is live tonight",
         "nikel",
         "Maxwellian",
-        "cortezes",
         "AbletonLive",
-        "A neutral sentence says the show is live near olive and magic, nikel, Maxwellian, and cortezes.",
+        "magical",
+        "lives",
+        "olives",
+        "a dark, magical evening",
+        "The well-known show is live tonight near an olive tree and a magic lantern.",
+        "A neutral sentence says the show is live near olive and magic, nikel, and Maxwellian.",
+    ]
+    forbidden = [
+        "Ni\u200bke",
+        "Ni\u200cke",
+        "Ni\u200dke",
+        "\ufeffNike",
+        "Ni\u2060ke",
+        "Ni\u00adke",
+        "Ni\rke",
+        "Ni\u2028ke",
+        "Ni\u2029ke",
+        "\u202eNike",
     ]
     for text in blocked:
         if not module.has_blocked_brand(text):
@@ -236,6 +293,9 @@ def check_brand_probes(problems: list[str]) -> None:
     for text in clear:
         if module.has_blocked_brand(text):
             problems.append("brand probe matched a clear string")
+    for text in forbidden:
+        if not module.has_forbidden_invisible(text):
+            problems.append("invisible probe was not rejected")
     for path in sorted(FIX.rglob("*.json")):
         if path.name.startswith("fail_brand"):
             continue
@@ -264,6 +324,7 @@ def expect_fail(proc: subprocess.CompletedProcess[str], expected: list[str], lab
 
 def main() -> int:
     problems: list[str] = []
+    module = load_validator()
     approved = json.loads((FIX / "pass_approved.json").read_text(encoding="utf-8"))
     if approved.get("text") != "PLACEHOLDER_TEXT_001":
         problems.append("pass_approved.json text is not the placeholder")
@@ -312,6 +373,14 @@ def main() -> int:
         for token in HIDDEN_TOKENS.get(name, []):
             if token in blob:
                 problems.append(f"{name} echoed a blocked token")
+        raw_text = path.read_text(encoding="utf-8")
+        for token in re.findall(r"[^\W\d_]+", raw_text, flags=re.UNICODE):
+            if module.has_blocked_brand(token) and token in blob:
+                problems.append(f"{name} echoed a blocked token")
+        if isinstance(canon, dict) and isinstance(canon.get("id"), str):
+            entry_name = canon["id"]
+            if module.has_blocked_brand(entry_name) and entry_name in blob:
+                problems.append(f"{name} printed a blocked entry id")
         if name == "fail_no_echo.json":
             for sentinel in ("PLACEHOLDER_TEXT_001", "TAGVALUE_NO_ECHO", "REFVALUE_NO_ECHO"):
                 if sentinel in blob:
@@ -404,7 +473,9 @@ def main() -> int:
         bad_proc = run([str(bad_schema), *PROTECTED])
         expect_fail(
             bad_proc,
-            ["FAIL rule=json_invalid entry=- field=Data/schemas/broken.schema.json"],
+            [
+                "FAIL rule=schema_file_not_schema_json entry=- field=Data/schemas/broken.schema.json"
+            ],
             "broken schema json",
             problems,
         )
@@ -451,6 +522,258 @@ def main() -> int:
     edited_blob = edited.stdout + edited.stderr
     if "correction_of_line_2_EDIT" in edited_blob or "PLACEHOLDER_TEXT_001" in edited_blob:
         problems.append("edited line 7 output echoed text")
+
+    metric_bytes = (ROOT / "Metrics" / "tasks.jsonl").read_bytes().split(b"\n")
+    if metric_bytes[-1] == b"":
+        metric_bytes.pop()
+    if module.line_digest(metric_bytes[8]) != module.BOOK_APPROVAL_SHA256:
+        problems.append("approval line digest does not match the pin")
+    if module.BOOK_APPROVAL_LINE != 9:
+        problems.append("approval line number is not 9")
+
+    book_at_base = run([str(FIX / "pass_book.json"), *HEAD_ARG])
+    if book_at_base.returncode != 0 or book_at_base.stdout.strip() != "OK":
+        problems.append("pass_book.json should pass when the pinned line is on HEAD")
+    book_off_base = run([str(FIX / "pass_book.json"), *PROTECTED])
+    expect_fail(
+        book_off_base,
+        ["FAIL rule=approval_ref_not_at_base entry=ENTRY_BOOK_OK field=approval_ref"],
+        "book text before the pinned line is on the base",
+        problems,
+    )
+
+    def metrics_case(label: str, metrics_name: str, base: list[str], expected: list[str]) -> None:
+        proc = run(
+            [str(FIX / "pass_unapproved.json"), "--metrics", str(FIX / metrics_name), *base]
+        )
+        expect_fail(proc, expected, label, problems)
+        blob = proc.stdout + proc.stderr
+        if "An extra approval line" in blob or "PLACEHOLDER_TEXT_001" in blob:
+            problems.append(f"{label} echoed text")
+
+    metrics_case(
+        "appended fake approval",
+        "metrics_fake_l10.jsonl",
+        PROTECTED,
+        [
+            "FAIL rule=metrics_approval_pin_mismatch entry=- field=line_10",
+            "FAIL rule=metrics_duplicate_plan_approved entry=- field=line_10",
+        ],
+    )
+    metrics_case(
+        "appended copy of the pinned line",
+        "metrics_copy_l9.jsonl",
+        PROTECTED,
+        [
+            "FAIL rule=metrics_approval_pin_mismatch entry=- field=line_10",
+            "FAIL rule=metrics_duplicate_plan_approved entry=- field=line_10",
+        ],
+    )
+    metrics_case(
+        "rewritten pinned line",
+        "metrics_rewritten_l9.jsonl",
+        PROTECTED,
+        ["FAIL rule=metrics_approval_pin_mismatch entry=- field=line_9"],
+    )
+    metrics_case(
+        "duplicate task key",
+        "metrics_dup_task_key.jsonl",
+        PROTECTED,
+        ["FAIL rule=metrics_duplicate_key entry=- field=line_10"],
+    )
+
+    head_metrics = subprocess.run(
+        ["git", "-C", str(ROOT), "show", "HEAD:Metrics/tasks.jsonl"],
+        capture_output=True,
+        check=False,
+    )
+    head_fake = FIX / "metrics_head_fake.jsonl"
+    fake_line = (
+        b'{"task_id":"VS-001-S0","event":"plan_approved","version":"v2",'
+        b'"approver":"Will Harris","actor":"Will Harris","date":"2026-10-02",'
+        b'"words":"An extra approval line","measured_or_estimated":"measured"}\n'
+    )
+    payload = head_metrics.stdout
+    if payload and not payload.endswith(b"\n"):
+        payload += b"\n"
+    head_fake.write_bytes(payload + fake_line)
+    try:
+        head_proc = run(
+            [
+                str(FIX / "pass_unapproved.json"),
+                "--metrics",
+                str(head_fake),
+                *HEAD_ARG,
+            ]
+        )
+        expect_fail(
+            head_proc,
+            [
+                "FAIL rule=metrics_approval_pin_mismatch entry=- field=line_10",
+                "FAIL rule=metrics_duplicate_plan_approved entry=- field=line_10",
+            ],
+            "base HEAD with an added fake line",
+            problems,
+        )
+        if "An extra approval line" in head_proc.stdout + head_proc.stderr:
+            problems.append("base HEAD fake line echoed text")
+    finally:
+        head_fake.unlink(missing_ok=True)
+
+    brand_word = module.BLOCKED_BRANDS[5]
+    schema_top = ROOT / "Data" / "schemas" / "book.schema.json"
+    nested_dir = ROOT / "Data" / "schemas" / "deep" / "nested"
+    nested_dir.mkdir(parents=True)
+    schema_nested = nested_dir / "book.schema.json"
+    schema_body = '{"title": "' + brand_word + '"}\n'
+    schema_top.write_text(schema_body, encoding="utf-8")
+    schema_nested.write_text(schema_body, encoding="utf-8")
+    readme_path = ROOT / "Data" / "README.md"
+    readme_original = readme_path.read_text(encoding="utf-8")
+    readme_path.write_text(brand_word + "\n", encoding="utf-8")
+    link_target = Path("/tmp/s0-not-a-brand-target")
+    link_target.write_text("sentinel-hostname-path\n", encoding="utf-8")
+    link_path = ROOT / "Data" / "linked.json"
+    dir_target = Path("/tmp/s0-dir-target")
+    dir_target.mkdir(exist_ok=True)
+    (dir_target / "secret-name.txt").write_text("secret-body\n", encoding="utf-8")
+    dir_link = ROOT / "Data" / "linked_dir"
+    cr_dir = ROOT / "Data" / "sub"
+    cr_dir.mkdir(exist_ok=True)
+    cr_path = cr_dir / "line.md"
+    try:
+        if link_path.exists() or link_path.is_symlink():
+            link_path.unlink()
+        link_path.symlink_to(link_target)
+        if dir_link.exists() or dir_link.is_symlink():
+            dir_link.unlink()
+        dir_link.symlink_to(dir_target, target_is_directory=True)
+        cr_path.write_bytes(b"hello\r\n")
+
+        top_proc = run([str(schema_top), *PROTECTED])
+        expect_fail(
+            top_proc,
+            [
+                "FAIL rule=schema_file_not_schema_json entry=- field=Data/schemas/book.schema.json",
+                "FAIL rule=brand_name_blocked entry=- field=Data/schemas/book.schema.json",
+            ],
+            "top-level schema file",
+            problems,
+        )
+        if brand_word in top_proc.stdout + top_proc.stderr:
+            problems.append("top-level schema file echoed a blocked name")
+        nested_proc_brand = run([str(schema_nested), *PROTECTED])
+        expect_fail(
+            nested_proc_brand,
+            [
+                "FAIL rule=schema_file_not_schema_json entry=- field=Data/schemas/deep/nested/book.schema.json",
+                "FAIL rule=brand_name_blocked entry=- field=Data/schemas/deep/nested/book.schema.json",
+            ],
+            "nested schema file",
+            problems,
+        )
+        if brand_word in nested_proc_brand.stdout + nested_proc_brand.stderr:
+            problems.append("nested schema file echoed a blocked name")
+        branded_readme = run([str(readme_path), *PROTECTED])
+        expect_fail(
+            branded_readme,
+            ["FAIL rule=brand_name_blocked entry=- field=Data/README.md"],
+            "branded data readme",
+            problems,
+        )
+        if brand_word in branded_readme.stdout + branded_readme.stderr:
+            problems.append("branded data readme echoed a blocked name")
+        link_proc = run([str(link_path), *PROTECTED])
+        expect_fail(
+            link_proc,
+            ["FAIL rule=data_symlink entry=- field=Data/linked.json"],
+            "data file symlink",
+            problems,
+        )
+        link_blob = link_proc.stdout + link_proc.stderr
+        if "/tmp/s0-not-a-brand-target" in link_blob or "sentinel-hostname-path" in link_blob:
+            problems.append("symlink output revealed its target")
+        dir_proc = run([str(dir_link), *PROTECTED])
+        expect_fail(
+            dir_proc,
+            ["FAIL rule=data_symlink entry=- field=Data/linked_dir"],
+            "data directory symlink",
+            problems,
+        )
+        dir_blob = dir_proc.stdout + dir_proc.stderr
+        if "secret-name" in dir_blob or "secret-body" in dir_blob or "/tmp/s0-dir-target" in dir_blob:
+            problems.append("directory symlink output revealed its target")
+        cr_proc = run([str(cr_path), *PROTECTED])
+        expect_fail(
+            cr_proc,
+            [
+                "FAIL rule=data_file_not_json entry=- field=Data/sub/line.md",
+                "FAIL rule=forbidden_invisible_char entry=- field=Data/sub/line.md",
+            ],
+            "bare carriage return in Data",
+            problems,
+        )
+    finally:
+        readme_path.write_text(readme_original, encoding="utf-8")
+        schema_top.unlink(missing_ok=True)
+        schema_nested.unlink(missing_ok=True)
+        if link_path.is_symlink() or link_path.exists():
+            link_path.unlink()
+        if dir_link.is_symlink() or dir_link.exists():
+            dir_link.unlink()
+        cr_path.unlink(missing_ok=True)
+        if cr_dir.exists():
+            try:
+                cr_dir.rmdir()
+            except OSError:
+                pass
+        nested_root = ROOT / "Data" / "schemas" / "deep"
+        if nested_root.exists():
+            for child in sorted(nested_root.rglob("*"), reverse=True):
+                if child.is_file() or child.is_symlink():
+                    child.unlink()
+                elif child.is_dir():
+                    child.rmdir()
+            nested_root.rmdir()
+
+    deep_path = FIX / "deep_tmp.json"
+    deep_path.write_text("[" * 10000 + "0" + "]" * 10000, encoding="utf-8")
+    try:
+        deep_proc = run([str(deep_path), *BASE_ARG])
+        expect_fail(
+            deep_proc,
+            [
+                "FAIL rule=json_nesting_too_deep entry=- field=Tools/tests/fixtures/deep_tmp.json"
+            ],
+            "deeply nested json",
+            problems,
+        )
+    finally:
+        deep_path.unlink(missing_ok=True)
+
+    origin = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "--verify", "--quiet", "origin/main"],
+        capture_output=True,
+    )
+    if origin.returncode == 0:
+        origin_proc = run(["--base", "origin/main"])
+        if origin_proc.returncode != 0 or origin_proc.stdout.strip() != "OK":
+            problems.append("real Data/ folder did not pass against origin/main")
+    default_cmd = [sys.executable, str(VALIDATOR)]
+    print("COMMAND", " ".join(default_cmd))
+    default_proc = subprocess.run(default_cmd, cwd=ROOT, capture_output=True, text=True)
+    print("EXIT", default_proc.returncode)
+    print("STDOUT")
+    sys.stdout.write(default_proc.stdout)
+    if default_proc.stdout and not default_proc.stdout.endswith("\n"):
+        print()
+    print("STDERR")
+    sys.stdout.write(default_proc.stderr)
+    if default_proc.stderr and not default_proc.stderr.endswith("\n"):
+        print()
+    print("---")
+    if default_proc.returncode != 0 or default_proc.stdout.strip() != "OK":
+        problems.append("default base did not pass")
 
     data_proc = run(PROTECTED)
     if data_proc.returncode != 0 or data_proc.stdout.strip() != "OK":
