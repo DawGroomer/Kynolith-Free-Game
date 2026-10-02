@@ -10,7 +10,7 @@ Each canon entry is one JSON object in a file under `Data/`. The file name must 
 
 Under `Data/schemas/`, the only allowed file is `Data/schemas/canon.schema.json`. Any other file there, including a nested path and a name that ends in `.schema.json`, fails `schema_file_not_schema_json`. A symlink anywhere under `Data/` fails `data_symlink` and is not followed. A `schemas` folder that is not the top `Data/schemas/` folder is still scanned as canon entries.
 
-The entry fields are `id`, `canon_tag`, `text`, `source_pages`, and, when approval is required, `approval_ref`. `id` matches `^[A-Z0-9_]+$` and is at most 64 characters. `canon_tag` is at most 32 characters. The allowed values are `CANON`, `GAME CANON`, `PLACEHOLDER_TAG`, `TAGVALUE_NO_ECHO`, and `UNAPPROVED`. The final tag vocabulary is still open. Any other value fails `canon_tag_not_allowed`. An empty tag fails `canon_tag_empty`. `source_pages`, when present, is a non-empty array of integers. The validator, not the schema, requires those integers to fall on pages 8 through 20 for non-placeholder text. Duplicate JSON keys fail `json_duplicate_key`.
+The entry fields are `id`, `canon_tag`, `text`, `source_pages`, and, when approval is required, `approval_ref`. `id` matches `^[A-Z0-9_]+$` and is at most 64 characters. `canon_tag` is at most 32 characters. The allowed values are exactly `CANON`, `GAME CANON`, and `UNAPPROVED`. The final tag vocabulary is still open. Any other value fails `canon_tag_not_allowed`. An empty tag fails `canon_tag_empty`. `source_pages`, when present, is a non-empty array of integers. The validator, not the schema, requires those integers to fall on pages 8 through 20 for non-placeholder text. Duplicate JSON keys fail `json_duplicate_key`.
 
 ## Book text
 
@@ -33,7 +33,7 @@ Book-text entries keep `canon_tag` `UNAPPROVED` and include an `approval_ref`. A
 
 `UNAPPROVED` is the only allowlisted tag that may omit approval. The match is exact. `CANON` and `GAME CANON` are both allowed, and each needs an `approval_ref` that resolves. An empty `canon_tag` fails. A missing `canon_tag` fails. A tag outside the allowlist fails `canon_tag_not_allowed`.
 
-The final tag value is still open. The allowlist is the tags already used in the repo plus `CANON`, `GAME CANON`, and `UNAPPROVED`.
+The final tag value is still open. The allowlist is exactly `CANON`, `GAME CANON`, and `UNAPPROVED`. No file under `Data/` uses a tag yet.
 
 ## How approval_ref resolves
 

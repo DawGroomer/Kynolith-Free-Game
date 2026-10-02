@@ -33,15 +33,12 @@ from jsonschema.exceptions import SchemaError
 APPROVAL_EVENTS = frozenset({"plan_approved"})
 
 UNAPPROVED = "UNAPPROVED"
-# U1 is still open. The set is every canon_tag already used as vocabulary in
-# this repo, plus CANON, GAME CANON, and UNAPPROVED. Empty is not a member.
-# The schema caps the string at 32 characters.
+# U1 is still open. The real allowlist is these three values. Test-only tags
+# are not members. Empty is not a member. The schema caps the string at 32.
 ALLOWED_CANON_TAGS = frozenset(
     {
         "CANON",
         "GAME CANON",
-        "PLACEHOLDER_TAG",
-        "TAGVALUE_NO_ECHO",
         "UNAPPROVED",
     }
 )

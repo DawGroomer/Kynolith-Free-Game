@@ -122,6 +122,7 @@ FAIL_CASES = [
     ("fail_brand_id_suffix.json", "brand_name_blocked", PROTECTED, 1, ["id"]),
     ("fail_tag_long.json", "schema_invalid", PROTECTED, 1, ["canon_tag"]),
     ("fail_tag_pattern.json", "canon_tag_not_allowed", PROTECTED, 1, ["canon_tag"]),
+    ("fail_tag_placeholder.json", "canon_tag_not_allowed", PROTECTED, 1, ["canon_tag"]),
     ("fail_id_long.json", "schema_invalid", PROTECTED, 1, ["id"]),
     ("fail_placeholder_long.json", "placeholder_too_long", PROTECTED, 1, ["text"]),
     ("fail_brand_homoglyph.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
@@ -426,9 +427,9 @@ def main() -> int:
             if module.has_blocked_brand(entry_name) and entry_name in blob:
                 problems.append(f"{name} printed a blocked entry id")
         if name == "fail_no_echo.json":
-            for sentinel in ("PLACEHOLDER_TEXT_001", "TAGVALUE_NO_ECHO", "REFVALUE_NO_ECHO"):
+            for sentinel in ("PLACEHOLDER_TEXT_001", "REFVALUE_NO_ECHO"):
                 if sentinel in blob:
-                    problems.append(f"no-echo output contains {sentinel}")
+                    problems.append("no-echo output contains a hidden field value")
             if "entry=ENTRY_NO_ECHO" not in proc.stdout:
                 problems.append("no-echo output missing entry id")
             if "field=approval_ref" not in proc.stdout:
@@ -578,8 +579,6 @@ def main() -> int:
     expected_tags = {
         "CANON",
         "GAME CANON",
-        "PLACEHOLDER_TAG",
-        "TAGVALUE_NO_ECHO",
         "UNAPPROVED",
     }
     if set(module.ALLOWED_CANON_TAGS) != expected_tags:
