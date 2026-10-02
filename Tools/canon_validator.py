@@ -42,6 +42,7 @@ SCHEMA_SUFFIX = ".schema.json"
 # not listed. Matching ignores case. A newline may sit between the letters of
 # one name. Any whitespace, including a newline, may separate the words of a
 # multi-word name. Word boundaries keep a longer ordinary word from matching.
+# A plural s, or a possessive 's or ’s, may follow the whole name.
 BLOCKED_BRANDS = (
     "Ableton Live",
     "Dark Magic",
@@ -51,6 +52,8 @@ BLOCKED_BRANDS = (
     "Nike",
     "Cortez",
 )
+# Optional plural or possessive on the whole blocked name. Not a whitespace strip.
+_BRAND_SUFFIX = "(?:'s|\u2019s|s)?"
 
 RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
 RULE_CANON_TAG_MISSING = "canon_tag_missing"
@@ -83,7 +86,7 @@ def _brand_pattern(phrase: str) -> re.Pattern[str]:
         parts.append(r"(?:\r?\n)?".join(letters))
     body = r"\s+".join(parts)
     return re.compile(
-        rf"(?<![A-Za-z0-9_]){body}(?![A-Za-z0-9_])",
+        rf"(?<![A-Za-z0-9_]){body}{_BRAND_SUFFIX}(?![A-Za-z0-9_])",
         re.IGNORECASE,
     )
 

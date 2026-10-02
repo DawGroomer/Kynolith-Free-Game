@@ -22,7 +22,7 @@ Non-placeholder `text` passes only when all three of these hold:
 
 - `approval_ref` resolves under the rules below, and that line's `task_id` is exactly `VS-001-S0`. Citing `#L1`, or any other task's `plan_approved` line (including a near miss such as `VS-001-S0-1`), fails `approval_ref_task_mismatch`.
 - `source_pages` is present and every page is an integer from 8 through 20 inclusive. A missing list, or a page of 7 or 21, fails `source_pages_out_of_range`.
-- No blocked maker name or product model name appears in any string field of the entry. The check ignores capital letters. A multi-word name still matches when any whitespace or a newline splits the words, and a single name still matches when a newline breaks it. The match uses word boundaries, so an ordinary longer word that only contains those letters stays allowed. The bare word Live stays allowed. The failure is `brand_name_blocked` on the field that matched. The validator does not print the matched name or any field value.
+- No blocked maker name or product model name appears in any string field of the entry. The check ignores capital letters. A multi-word name still matches when any whitespace or a newline splits the words, and a single name still matches when a newline breaks it. A plural s, or a possessive apostrophe-s, may follow the name. The match uses word boundaries, so an ordinary longer word that only contains those letters stays allowed. The bare word Live stays allowed. The failure is `brand_name_blocked` on the field that matched. The validator does not print the matched name or any field value.
 
 Book-text entries keep `canon_tag` `UNAPPROVED` and include an `approval_ref`. The validator does not invent other tag values.
 
