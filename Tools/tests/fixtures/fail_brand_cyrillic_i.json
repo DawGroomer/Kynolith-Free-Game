@@ -1,10 +1,10 @@
 {
-  "id": "ENTRY_BRAND_ES",
+  "id": "ENTRY_BRAND_CYRILLIC_I",
   "canon_tag": "UNAPPROVED",
   "approval_ref": "Metrics/tasks.jsonl#L9",
   "source_pages": [
     8,
     20
   ],
-  "text": "A label reads Cortezes once."
+  "text": "A label reads Nіke once."
 }

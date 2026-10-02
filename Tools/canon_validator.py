@@ -10,8 +10,9 @@ gate: the pinned approval line must already exist byte-for-byte on the base,
 source pages 8-20, and no blocked name.
 
 A minimal append-only guard compares Metrics/tasks.jsonl to a git base.
-The default base is origin/main, or the pinned main SHA when that ref is absent.
-Task 000-4 owns the full metrics append-only check and may take this over.
+The base must be origin/main, or the pinned main SHA when that ref is absent,
+or an ancestor of that commit. Task 000-4 owns the full metrics append-only
+check and may take this over.
 """
 
 from __future__ import annotations
@@ -32,6 +33,18 @@ from jsonschema.exceptions import SchemaError
 APPROVAL_EVENTS = frozenset({"plan_approved"})
 
 UNAPPROVED = "UNAPPROVED"
+# U1 is still open. The set is every canon_tag already used as vocabulary in
+# this repo, plus CANON, GAME CANON, and UNAPPROVED. Empty is not a member.
+# The schema caps the string at 32 characters.
+ALLOWED_CANON_TAGS = frozenset(
+    {
+        "CANON",
+        "GAME CANON",
+        "PLACEHOLDER_TAG",
+        "TAGVALUE_NO_ECHO",
+        "UNAPPROVED",
+    }
+)
 APPROVER_NAME = "Will Harris"
 # Book-text entries may cite only this task's pinned plan_approved line.
 BOOK_TEXT_TASK_ID = "VS-001-S0"
@@ -66,8 +79,24 @@ BLOCKED_BRANDS = (
     "Cortez",
 )
 
-# Explicit Cyrillic and Greek look-alikes. No confusables package.
+# Look-alikes for letters in the blocked names. Applied to a copy, after
+# NFKC and casefold. Fullwidth and mathematical letters fold via NFKC.
+# No confusables package.
 _CONFUSABLES = {
+    # Latin
+    "\u0251": "a",
+    "\u025b": "e",
+    "\u0261": "g",
+    "\u0131": "i",
+    "\u0269": "i",
+    "\u026a": "i",
+    "\u0138": "k",
+    "\u0142": "l",
+    "\u01c0": "l",
+    "\u0275": "o",
+    "\u028a": "u",
+    "\u028b": "v",
+    # Cyrillic
     "\u0430": "a",
     "\u0432": "b",
     "\u0441": "c",
@@ -92,6 +121,7 @@ _CONFUSABLES = {
     "\u051d": "w",
     "\u0475": "v",
     "\u0461": "w",
+    # Greek
     "\u03b1": "a",
     "\u03b2": "b",
     "\u03b5": "e",
@@ -113,6 +143,7 @@ _CONFUSABLES = {
 RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
 RULE_CANON_TAG_MISSING = "canon_tag_missing"
 RULE_CANON_TAG_EMPTY = "canon_tag_empty"
+RULE_CANON_TAG_NOT_ALLOWED = "canon_tag_not_allowed"
 RULE_APPROVAL_REF_REQUIRED = "approval_ref_required"
 RULE_APPROVAL_REF_MALFORMED = "approval_ref_malformed"
 RULE_APPROVAL_REF_LINE_OUT_OF_RANGE = "approval_ref_line_out_of_range"
@@ -128,6 +159,7 @@ RULE_PLACEHOLDER_TOO_LONG = "placeholder_too_long"
 RULE_SCHEMA_FILE_NOT_SCHEMA_JSON = "schema_file_not_schema_json"
 RULE_METRICS_LINE_NOT_BYTE_IDENTICAL = "metrics_line_not_byte_identical"
 RULE_METRICS_BASE_UNREADABLE = "metrics_base_unreadable"
+RULE_METRICS_BASE_NOT_ANCESTOR = "metrics_base_not_ancestor"
 RULE_METRICS_UNREADABLE = "metrics_unreadable"
 RULE_METRICS_APPROVAL_PIN_MISMATCH = "metrics_approval_pin_mismatch"
 RULE_METRICS_DUPLICATE_PLAN_APPROVED = "metrics_duplicate_plan_approved"
@@ -161,6 +193,7 @@ def parse_json(text: str) -> object:
 
 
 def fold_text(text: str) -> str:
+    """Build a new string for brand matching. The caller's text stays as it was."""
     folded = unicodedata.normalize("NFKC", text).casefold()
     folded = unicodedata.normalize("NFD", folded)
     out: list[str] = []
@@ -327,6 +360,44 @@ def default_base(root: Path) -> str:
     return PINNED_MAIN_SHA
 
 
+def resolved_commit(rev: str, root: Path) -> str | None:
+    proc = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        return None
+    sha = proc.stdout.strip()
+    return sha or None
+
+
+def main_tip(root: Path) -> str | None:
+    found = resolved_commit("origin/main", root)
+    if found:
+        return found
+    return resolved_commit(PINNED_MAIN_SHA, root)
+
+
+def base_ancestor_status(base: str, root: Path) -> str:
+    """ok, unreadable, or not_ancestor. A commit is an ancestor of itself."""
+    commit = resolved_commit(base, root)
+    if commit is None:
+        return "unreadable"
+    tip = main_tip(root)
+    if tip is None:
+        return "unreadable"
+    proc = subprocess.run(
+        ["git", "-C", str(root), "merge-base", "--is-ancestor", commit, tip],
+        capture_output=True,
+    )
+    if proc.returncode == 0:
+        return "ok"
+    if proc.returncode == 1:
+        return "not_ancestor"
+    return "unreadable"
+
+
 def read_base_lines(base: str, root: Path) -> tuple[list[str], list[bytes]]:
     proc = subprocess.run(
         ["git", "-C", str(root), "show", f"{base}:Metrics/tasks.jsonl"],
@@ -473,6 +544,8 @@ def check_tag_and_ref(
     tag = instance.get("canon_tag")
     if tag == "":
         return [report(RULE_CANON_TAG_EMPTY, entry, "canon_tag")]
+    if not isinstance(tag, str) or tag not in ALLOWED_CANON_TAGS:
+        return [report(RULE_CANON_TAG_NOT_ALLOWED, entry, "canon_tag")]
     ref = instance.get("approval_ref")
     if tag != UNAPPROVED and ref is None:
         return [report(RULE_APPROVAL_REF_REQUIRED, entry, "approval_ref")]
@@ -593,6 +666,10 @@ def check_file(
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return [report(RULE_JSON_INVALID, "-", shown)]
+    # Cf, U+2028, U+2029, and a bare CR on the raw text, before JSON parsing.
+    # json.loads rejects a leading U+FEFF by itself.
+    if has_forbidden_invisible(text):
+        return [report(RULE_FORBIDDEN_INVISIBLE, "-", shown)]
     try:
         instance = parse_json(text)
     except DuplicateKeyError as exc:
@@ -631,6 +708,9 @@ def main(argv: list[str] | None = None) -> int:
     schema_path = args.schema or (root / "Data" / "schemas" / "canon.schema.json")
     metrics_path = args.metrics or (root / "Metrics" / "tasks.jsonl")
     base = args.base if args.base is not None else default_base(root)
+    if base_ancestor_status(base, root) == "not_ancestor":
+        print(report(RULE_METRICS_BASE_NOT_ANCESTOR, "-", "Metrics/tasks.jsonl"))
+        return 1
 
     if not metrics_path.is_file():
         print(report(RULE_METRICS_UNREADABLE, "-", "Metrics/tasks.jsonl"))

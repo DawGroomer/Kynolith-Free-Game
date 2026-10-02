@@ -29,6 +29,7 @@ OTHER_METRICS = [
 PASS_CASES = [
     ("pass_unapproved.json", BASE_ARG),
     ("pass_approved.json", BASE_ARG),
+    ("pass_game_canon.json", BASE_ARG),
     (
         "pass_append.json",
         ["--metrics", str(FIX / "metrics_appended.jsonl"), "--base", BASE],
@@ -43,8 +44,9 @@ FAIL_CASES = [
     ("fail_ref_line_3.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
     ("fail_ref_line_6.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
     ("fail_ref_line_7.json", "approval_ref_event_not_approval", BASE_ARG, 1, []),
-    ("fail_tag_unapproved.json", "approval_ref_required", BASE_ARG, 1, []),
-    ("fail_tag_unaproved.json", "approval_ref_required", BASE_ARG, 1, []),
+    ("fail_tag_unapproved.json", "canon_tag_not_allowed", BASE_ARG, 1, ["canon_tag"]),
+    ("fail_tag_unaproved.json", "canon_tag_not_allowed", BASE_ARG, 1, ["canon_tag"]),
+    ("fail_tag_needs_ref.json", "approval_ref_required", BASE_ARG, 1, ["approval_ref"]),
     ("fail_tag_empty.json", "canon_tag_empty", BASE_ARG, 1, []),
     ("fail_tag_missing.json", "canon_tag_missing", BASE_ARG, 1, []),
     ("fail_no_echo.json", "approval_ref_malformed", BASE_ARG, 1, []),
@@ -99,10 +101,10 @@ FAIL_CASES = [
         1,
         ["Metrics/tasks.jsonl"],
     ),
-    ("fail_pages_missing.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
-    ("fail_pages_7.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
-    ("fail_pages_21.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
-    ("fail_pages_mixed.json", "source_pages_out_of_range", HEAD_ARG, 1, ["source_pages"]),
+    ("fail_pages_missing.json", "approval_ref_not_at_base", PROTECTED, 1, ["approval_ref"]),
+    ("fail_pages_7.json", "approval_ref_not_at_base", PROTECTED, 1, ["approval_ref"]),
+    ("fail_pages_21.json", "approval_ref_not_at_base", PROTECTED, 1, ["approval_ref"]),
+    ("fail_pages_mixed.json", "approval_ref_not_at_base", PROTECTED, 1, ["approval_ref"]),
     ("fail_brand_caps.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_phrase.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_split.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
@@ -119,7 +121,7 @@ FAIL_CASES = [
     ("fail_brand_placeholder.json", "brand_name_blocked", PROTECTED, 1, ["canon_tag"]),
     ("fail_brand_id_suffix.json", "brand_name_blocked", PROTECTED, 1, ["id"]),
     ("fail_tag_long.json", "schema_invalid", PROTECTED, 1, ["canon_tag"]),
-    ("fail_tag_pattern.json", "schema_invalid", PROTECTED, 1, ["canon_tag"]),
+    ("fail_tag_pattern.json", "canon_tag_not_allowed", PROTECTED, 1, ["canon_tag"]),
     ("fail_id_long.json", "schema_invalid", PROTECTED, 1, ["id"]),
     ("fail_placeholder_long.json", "placeholder_too_long", PROTECTED, 1, ["text"]),
     ("fail_brand_homoglyph.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
@@ -130,18 +132,21 @@ FAIL_CASES = [
     ("fail_brand_hyphen_nl.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_dotted.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_es.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_cyrillic_i.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_suffix_x.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_suffix_digit.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
-    ("fail_brand_zwsp.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_zwnj.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_zwj.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_bom.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_wj.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_shy.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_zwsp.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_zwsp.json"]),
+    ("fail_brand_zwnj.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_zwnj.json"]),
+    ("fail_brand_zwj.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_zwj.json"]),
+    ("fail_brand_bom.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_bom.json"]),
+    ("fail_feff_leading.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_feff_leading.json"]),
+    ("fail_brand_wj.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_wj.json"]),
+    ("fail_brand_shy.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_shy.json"]),
     ("fail_brand_cr.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_ls.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_ps.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
-    ("fail_brand_rtl.json", "forbidden_invisible_char", PROTECTED, 1, ["text"]),
+    ("fail_brand_ls.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_ls.json"]),
+    ("fail_brand_ps.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_ps.json"]),
+    ("fail_brand_rtl.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_rtl.json"]),
+    ("fail_book_marks.json", "approval_ref_not_at_base", PROTECTED, 1, ["approval_ref"]),
     ("fail_dup_text.json", "json_duplicate_key", PROTECTED, 1, ["text"]),
     ("fail_dup_pages.json", "json_duplicate_key", PROTECTED, 1, ["source_pages"]),
 ]
@@ -247,6 +252,9 @@ def check_brand_probes(problems: list[str]) -> None:
         "Nike's",
         "Nike\u2019s",
         "cortezes",
+        "Cortezes",
+        "N\u0456ke",
+        "N\u0131ke",
         "Ni-ke",
         "N.i.k.e",
         "Ni-\nke",
@@ -301,7 +309,10 @@ def check_brand_probes(problems: list[str]) -> None:
             continue
         if path.parent.name == "broken_json":
             continue
-        data = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
         for field, value in module.string_fields(data):
             if module.has_blocked_brand(value):
                 problems.append(f"brand false positive in {path.name} field {field}")
@@ -351,6 +362,7 @@ def main() -> int:
 
     for name, rule, extra, count, fields in FAIL_CASES:
         path = FIX / name
+        before_bytes = path.read_bytes()
         proc = run([str(path), *extra])
         fail_lines = [line for line in proc.stdout.splitlines() if line.startswith("FAIL ")]
         if proc.returncode == 0:
@@ -365,15 +377,27 @@ def main() -> int:
                 problems.append(f"{name} missing field {field}")
         if proc.stderr:
             problems.append(f"{name} wrote stderr")
-        canon = json.loads(path.read_text(encoding="utf-8"))
+        raw_text = path.read_text(encoding="utf-8")
+        if name == "fail_book_marks.json":
+            if path.read_bytes() != before_bytes:
+                problems.append("validator rewrote stored book punctuation")
+            marks = "\u2026\u2019\u2014\u00e9\u0101"
+            if any(char not in raw_text for char in marks):
+                problems.append("book punctuation missing from the stored fixture")
+            if module.has_forbidden_invisible(raw_text):
+                problems.append("book punctuation was flagged as invisible")
+        try:
+            canon = json.loads(raw_text)
+        except json.JSONDecodeError:
+            canon = None
         blob = proc.stdout + proc.stderr
-        for value in values_that_must_stay_hidden(canon, metrics_arg(extra)):
-            if value in blob:
-                problems.append(f"{name} echoed a field value")
+        if canon is not None:
+            for value in values_that_must_stay_hidden(canon, metrics_arg(extra)):
+                if value in blob:
+                    problems.append(f"{name} echoed a field value")
         for token in HIDDEN_TOKENS.get(name, []):
             if token in blob:
                 problems.append(f"{name} echoed a blocked token")
-        raw_text = path.read_text(encoding="utf-8")
         for token in re.findall(r"[^\W\d_]+", raw_text, flags=re.UNICODE):
             if module.has_blocked_brand(token) and token in blob:
                 problems.append(f"{name} echoed a blocked token")
@@ -531,9 +555,23 @@ def main() -> int:
     if module.BOOK_APPROVAL_LINE != 9:
         problems.append("approval line number is not 9")
 
-    book_at_base = run([str(FIX / "pass_book.json"), *HEAD_ARG])
-    if book_at_base.returncode != 0 or book_at_base.stdout.strip() != "OK":
-        problems.append("pass_book.json should pass when the pinned line is on HEAD")
+    expected_tags = {
+        "CANON",
+        "GAME CANON",
+        "PLACEHOLDER_TAG",
+        "TAGVALUE_NO_ECHO",
+        "UNAPPROVED",
+    }
+    if set(module.ALLOWED_CANON_TAGS) != expected_tags:
+        problems.append("canon tag allowlist does not match the closed set")
+
+    book_at_head = run([str(FIX / "pass_book.json"), *HEAD_ARG])
+    expect_fail(
+        book_at_head,
+        ["FAIL rule=metrics_base_not_ancestor entry=- field=Metrics/tasks.jsonl"],
+        "base HEAD is not an ancestor of origin/main",
+        problems,
+    )
     book_off_base = run([str(FIX / "pass_book.json"), *PROTECTED])
     expect_fail(
         book_off_base,
@@ -582,43 +620,54 @@ def main() -> int:
         ["FAIL rule=metrics_duplicate_key entry=- field=line_10"],
     )
 
-    head_metrics = subprocess.run(
-        ["git", "-C", str(ROOT), "show", "HEAD:Metrics/tasks.jsonl"],
-        capture_output=True,
-        check=False,
+    cite = run(
+        [
+            str(FIX / "fail_cite_l10.json"),
+            "--metrics",
+            str(FIX / "metrics_copy_l9.jsonl"),
+            *PROTECTED,
+        ]
     )
-    head_fake = FIX / "metrics_head_fake.jsonl"
-    fake_line = (
-        b'{"task_id":"VS-001-S0","event":"plan_approved","version":"v2",'
-        b'"approver":"Will Harris","actor":"Will Harris","date":"2026-10-02",'
-        b'"words":"An extra approval line","measured_or_estimated":"measured"}\n'
+    expect_fail(
+        cite,
+        [
+            "FAIL rule=metrics_approval_pin_mismatch entry=- field=line_10",
+            "FAIL rule=metrics_duplicate_plan_approved entry=- field=line_10",
+            "FAIL rule=approval_ref_task_mismatch entry=ENTRY_CITE_L10 field=approval_ref",
+        ],
+        "cited copy of the pinned approval line",
+        problems,
     )
-    payload = head_metrics.stdout
-    if payload and not payload.endswith(b"\n"):
-        payload += b"\n"
-    head_fake.write_bytes(payload + fake_line)
-    try:
-        head_proc = run(
-            [
-                str(FIX / "pass_unapproved.json"),
-                "--metrics",
-                str(head_fake),
-                *HEAD_ARG,
-            ]
+    cite_canon = json.loads((FIX / "fail_cite_l10.json").read_text(encoding="utf-8"))
+    cite_blob = cite.stdout + cite.stderr
+    for key, value in cite_canon.items():
+        if key != "id" and isinstance(value, str) and value and value in cite_blob:
+            problems.append("cited copy echoed a field value")
+    copied = (FIX / "metrics_copy_l9.jsonl").read_text(encoding="utf-8").splitlines()[9]
+    copied_words = json.loads(copied).get("words")
+    if isinstance(copied_words, str) and copied_words in cite_blob:
+        problems.append("cited copy echoed a field value")
+
+    validator = module.load_validator(ROOT / "Data" / "schemas" / "canon.schema.json")
+    page_lines = module.split_lines((ROOT / "Metrics" / "tasks.jsonl").read_bytes())
+    page_rows = [module.parse_json(line.decode("utf-8")) for line in page_lines]
+    page_entries = {
+        "fail_pages_missing.json": "ENTRY_PAGES_MISSING",
+        "fail_pages_7.json": "ENTRY_PAGES_7",
+        "fail_pages_21.json": "ENTRY_PAGES_21",
+        "fail_pages_mixed.json": "ENTRY_PAGES_MIXED",
+    }
+    for page_name, page_entry in page_entries.items():
+        page_instance = json.loads((FIX / page_name).read_text(encoding="utf-8"))
+        page_failures = module.check_entry(
+            page_instance, validator, page_rows, page_lines, page_lines
         )
-        expect_fail(
-            head_proc,
-            [
-                "FAIL rule=metrics_approval_pin_mismatch entry=- field=line_10",
-                "FAIL rule=metrics_duplicate_plan_approved entry=- field=line_10",
-            ],
-            "base HEAD with an added fake line",
-            problems,
+        wanted = (
+            "FAIL rule=source_pages_out_of_range "
+            f"entry={page_entry} field=source_pages"
         )
-        if "An extra approval line" in head_proc.stdout + head_proc.stderr:
-            problems.append("base HEAD fake line echoed text")
-    finally:
-        head_fake.unlink(missing_ok=True)
+        if page_failures != [wanted]:
+            problems.append(f"{page_name} did not report source_pages_out_of_range")
 
     brand_word = module.BLOCKED_BRANDS[5]
     schema_top = ROOT / "Data" / "schemas" / "book.schema.json"

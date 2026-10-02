@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Kynolith canon entry",
-  "description": "One canon or narrative entry stored in Data/ JSON. canon_tag is a string. The only tag that may omit approval_ref is the exact value UNAPPROVED. Other tag values are not enumerated. approval_ref resolution is checked by Tools/canon_validator.py.",
+  "description": "One canon or narrative entry stored in Data/ JSON. canon_tag is a string of at most 32 characters. The validator allowlist is CANON, GAME CANON, PLACEHOLDER_TAG, TAGVALUE_NO_ECHO, and UNAPPROVED. The only tag that may omit approval_ref is the exact value UNAPPROVED. approval_ref resolution is checked by Tools/canon_validator.py.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,8 +17,7 @@
     "canon_tag": {
       "type": "string",
       "maxLength": 32,
-      "pattern": "^[A-Za-z0-9_]*$",
-      "description": "Short tag. The docs require the exact uppercase value UNAPPROVED when approval_ref is omitted, and do not enumerate other tags, so the pattern allows that alphabet rather than lowercase only. Empty fails canon_tag_empty in the validator."
+      "description": "At most 32 characters. Allowed values: CANON, GAME CANON, PLACEHOLDER_TAG, TAGVALUE_NO_ECHO, UNAPPROVED. GAME CANON includes a space. Empty fails canon_tag_empty. Any other value fails canon_tag_not_allowed."
     },
     "approval_ref": {
       "type": "string",
