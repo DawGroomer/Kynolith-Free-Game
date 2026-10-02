@@ -67,8 +67,10 @@ ALLOWED_SCHEMA = "Data/schemas/canon.schema.json"
 DATA_README = "Data/README.md"
 
 # pp.8-20 maker and model strings supplied for S0-1. The bare word Live is
-# not listed. Matching uses a letters-only projection with word boundaries.
-# A plural s or es, or a possessive apostrophe-s, may follow the whole name.
+# not listed. On a folded copy, an optional run of whitespace, underscores,
+# dots, or hyphens may sit between any two letters, including none. A letter
+# may not sit immediately before the name. After it, an optional s, es, or
+# apostrophe-s may appear, and a letter may not sit immediately after that.
 BLOCKED_BRANDS = (
     "Ableton Live",
     "Dark Magic",
@@ -205,40 +207,15 @@ def fold_text(text: str) -> str:
     return "".join(out)
 
 
-def _collapse(chars: list[str]) -> str:
-    return re.sub(r" +", " ", "".join(chars)).strip()
-
-
-def project_join(folded: str) -> str:
-    """Drop hyphens, dots, digits, and newlines so split letters join."""
-    chars: list[str] = []
-    for char in folded:
-        if char == "_":
-            chars.append(" ")
-        elif char in "\n\r":
-            continue
-        elif char.isalpha():
-            chars.append(char)
-        elif char.isspace():
-            chars.append(" ")
-    return _collapse(chars)
-
-
-def project_separate(folded: str) -> str:
-    """Treat every non-letter as a word boundary."""
-    chars: list[str] = []
-    for char in folded:
-        if char.isalpha():
-            chars.append(char)
-        else:
-            chars.append(" ")
-    return _collapse(chars)
+# Whitespace, underscore, dot, or hyphen. Applied only between letters.
+_LETTER_GAP = r"[\s_.\-]*"
+_BRAND_SUFFIX = "(?:es|s|'s|\u2019s)?"
 
 
 def _brand_pattern(phrase: str) -> re.Pattern[str]:
-    folded = project_join(fold_text(phrase))
-    body = " ".join(re.escape(word) for word in folded.split(" "))
-    return re.compile(rf"(?<![a-z]){body}(?:es|s)?(?![a-z])")
+    letters = [char for char in fold_text(phrase) if char.isalpha()]
+    body = _LETTER_GAP.join(re.escape(char) for char in letters)
+    return re.compile(rf"(?<![a-z]){body}{_BRAND_SUFFIX}(?![a-z])")
 
 
 BRAND_PATTERNS = tuple(_brand_pattern(phrase) for phrase in BLOCKED_BRANDS)
@@ -279,8 +256,7 @@ def has_forbidden_invisible(value: str) -> bool:
 
 def has_blocked_brand(value: str) -> bool:
     folded = fold_text(value)
-    views = (project_join(folded), project_separate(folded))
-    return any(pattern.search(view) for view in views for pattern in BRAND_PATTERNS)
+    return any(pattern.search(folded) for pattern in BRAND_PATTERNS)
 
 
 def shown_entry(instance: object) -> str:
