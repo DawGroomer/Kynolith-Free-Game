@@ -181,18 +181,36 @@ def classify_file(path: Path) -> tuple[list[Path], list[str]]:
     return [], [report(RULE_DATA_FILE_NOT_JSON, "-", path.name)]
 
 
-def entry_files(path: Path) -> tuple[list[Path], list[str]]:
+def is_data_readme(candidate: Path, repo: Path) -> bool:
+    try:
+        return candidate.resolve() == (repo / "Data" / "README.md").resolve()
+    except OSError:
+        return False
+
+
+def under_top_data_schemas(candidate: Path, repo: Path) -> bool:
+    """Skip only Data/schemas, not a schemas folder nested deeper."""
+    data_root = repo / "Data"
+    try:
+        relative = candidate.resolve().relative_to(data_root.resolve())
+    except (OSError, ValueError):
+        return False
+    return bool(relative.parts) and relative.parts[0] == "schemas"
+
+
+def entry_files(path: Path, repo: Path) -> tuple[list[Path], list[str]]:
     if not path.exists():
         return [], [report(RULE_DATA_UNREADABLE, "-", "$")]
     if path.is_file():
+        if is_data_readme(path, repo) or under_top_data_schemas(path, repo):
+            return [], []
         return classify_file(path)
     files: list[Path] = []
     failures: list[str] = []
     for candidate in sorted(path.rglob("*")):
         if not candidate.is_file():
             continue
-        relative = candidate.relative_to(path)
-        if "schemas" in relative.parts:
+        if is_data_readme(candidate, repo) or under_top_data_schemas(candidate, repo):
             continue
         found, errors = classify_file(candidate)
         files.extend(found)
@@ -217,7 +235,7 @@ def collect_entries(paths: list[Path], root: Path) -> tuple[list[Path], list[str
     files: list[Path] = []
     failures: list[str] = []
     for target in targets:
-        found, errors = entry_files(target)
+        found, errors = entry_files(target, root)
         files.extend(found)
         failures.extend(errors)
     return files, failures

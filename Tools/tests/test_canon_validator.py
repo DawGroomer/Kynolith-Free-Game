@@ -212,12 +212,21 @@ def main() -> int:
     if non_json.stderr:
         problems.append("non-json fixture wrote stderr")
 
-    data_proc = run(["--base", BASE])
-    data_fails = [line for line in data_proc.stdout.splitlines() if line.startswith("FAIL ")]
-    if data_proc.returncode == 0 or data_fails != [
-        "FAIL rule=data_file_not_json entry=- field=README.md"
+    nested = FIX / "nested_schemas"
+    nested_proc = run([str(nested), "--base", BASE])
+    nested_fails = [line for line in nested_proc.stdout.splitlines() if line.startswith("FAIL ")]
+    if nested_proc.returncode == 0 or nested_fails != [
+        "FAIL rule=text_not_placeholder entry=ENTRY_NESTED_SCHEMAS field=text"
     ]:
-        problems.append("real Data/ folder did not fail on README.md")
+        problems.append("nested schemas fixture did not fail text_not_placeholder")
+    if "Any real sentence." in nested_proc.stdout + nested_proc.stderr:
+        problems.append("nested schemas fixture echoed text")
+    if nested_proc.stderr:
+        problems.append("nested schemas fixture wrote stderr")
+
+    data_proc = run(["--base", BASE])
+    if data_proc.returncode != 0 or data_proc.stdout.strip() != "OK":
+        problems.append("real Data/ folder did not pass")
     if "Structured project data." in data_proc.stdout + data_proc.stderr:
         problems.append("Data/ scan echoed README text")
     if data_proc.stderr:
