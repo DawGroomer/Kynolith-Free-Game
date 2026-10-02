@@ -144,6 +144,7 @@ RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
 RULE_CANON_TAG_MISSING = "canon_tag_missing"
 RULE_CANON_TAG_EMPTY = "canon_tag_empty"
 RULE_CANON_TAG_NOT_ALLOWED = "canon_tag_not_allowed"
+RULE_BOOK_TEXT_MUST_BE_UNAPPROVED = "book_text_must_be_unapproved"
 RULE_APPROVAL_REF_REQUIRED = "approval_ref_required"
 RULE_APPROVAL_REF_MALFORMED = "approval_ref_malformed"
 RULE_APPROVAL_REF_LINE_OUT_OF_RANGE = "approval_ref_line_out_of_range"
@@ -591,6 +592,10 @@ def check_entry(
         return []
     if not isinstance(text, str):
         return [report(RULE_TEXT_NOT_PLACEHOLDER, entry, "text")]
+    # Book text stays UNAPPROVED. CANON and GAME CANON remain allowlisted for
+    # placeholders and do not decide the open tag question.
+    if instance.get("canon_tag") != UNAPPROVED:
+        return [report(RULE_BOOK_TEXT_MUST_BE_UNAPPROVED, entry, "canon_tag")]
     approval = book_approval_rule(instance, metrics, work_lines, base_lines)
     if approval is not None:
         return [report(approval, entry, "approval_ref")]

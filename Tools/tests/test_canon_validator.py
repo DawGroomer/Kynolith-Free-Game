@@ -50,7 +50,7 @@ FAIL_CASES = [
     ("fail_tag_empty.json", "canon_tag_empty", BASE_ARG, 1, []),
     ("fail_tag_missing.json", "canon_tag_missing", BASE_ARG, 1, []),
     ("fail_no_echo.json", "approval_ref_malformed", BASE_ARG, 1, []),
-    ("fail_text_canon.json", "approval_ref_task_mismatch", BASE_ARG, 1, ["approval_ref"]),
+    ("fail_text_canon.json", "book_text_must_be_unapproved", BASE_ARG, 1, ["canon_tag"]),
     (
         "fail_text_unapproved.json",
         "approval_ref_task_mismatch",
@@ -147,6 +147,8 @@ FAIL_CASES = [
     ("fail_brand_ps.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_ps.json"]),
     ("fail_brand_rtl.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_brand_rtl.json"]),
     ("fail_book_marks.json", "approval_ref_not_at_base", PROTECTED, 1, ["approval_ref"]),
+    ("fail_book_tag_canon.json", "book_text_must_be_unapproved", PROTECTED, 1, ["canon_tag"]),
+    ("fail_book_tag_game.json", "book_text_must_be_unapproved", PROTECTED, 1, ["canon_tag"]),
     ("fail_dup_text.json", "json_duplicate_key", PROTECTED, 1, ["text"]),
     ("fail_dup_pages.json", "json_duplicate_key", PROTECTED, 1, ["source_pages"]),
 ]

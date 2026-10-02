@@ -20,13 +20,14 @@ Placeholder text matches `PLACEHOLDER_` plus uppercase letters, digits, and unde
 
 Every entry is scanned, including placeholders. The scan covers `id`, `canon_tag`, `approval_ref`, `text`, and any other string. An `id` that continues a blocked name with an underscore fails `brand_name_blocked`, and the id is not printed.
 
-Non-placeholder `text` passes only when all three of these hold:
+Non-placeholder `text` passes only when all four of these hold:
 
+- `canon_tag` is exactly `UNAPPROVED`. `CANON` and `GAME CANON` stay allowlisted for placeholder entries. On book text they fail `book_text_must_be_unapproved`. That leaves the final tag value open.
 - `approval_ref` resolves under the rules below, the line is the pinned `VS-001-S0` `plan_approved` line, and that line's bytes already exist at the same position on the base. A line that exists only in the working tree does not qualify. Citing `#L1`, another task's `plan_approved` line, or a near miss such as `VS-001-S0-1`, fails `approval_ref_task_mismatch`. A pinned line that is not on the base fails `approval_ref_not_at_base`.
 - `source_pages` is present and every page is an integer from 8 through 20 inclusive. A missing list, or a page of 7 or 21, fails `source_pages_out_of_range`.
 - No blocked maker name or product model name appears. The check folds a copy of the text: compatibility forms, case, marks in category Mn, and a small in-repo table of Latin, Cyrillic, and Greek look-alike letters. It compares a letters-only projection with word boundaries. The stored file is left byte-for-byte, including ellipsis, right single quotation mark, em dash, é, and ā. An ordinary longer word that only contains those letters stays allowed. The bare word Live stays allowed. A plural `s` or `es`, or a possessive apostrophe-s, may follow the whole name. The failure is `brand_name_blocked` on the field that matched. The validator does not print the matched name or any field value. Characters in category Cf, U+2028, U+2029, and a bare carriage return fail `forbidden_invisible_char`. That check runs on the raw file text before JSON parsing, so a leading U+FEFF fails `forbidden_invisible_char`.
 
-Book-text entries keep `canon_tag` `UNAPPROVED` and include an `approval_ref`. `CANON` and `GAME CANON` are both allowlisted for other entries.
+Book-text entries keep `canon_tag` `UNAPPROVED` and include an `approval_ref`. A placeholder may use any allowlisted tag, including `CANON` and `GAME CANON`.
 
 ## Tags and approval
 
