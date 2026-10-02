@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 """Validate canon entries in Data/ JSON.
 
-Reports the entry id, field name, and rule name. Does not print field values.
+Reports the entry id, field name, and rule name. Does not print field values,
+matched text, or symlink targets. An id that matches a blocked name is omitted.
 
-Placeholder text stays allowed. Non-placeholder text passes only for the
-VS-001-S0 book-text gate: a matching approval, source pages 8-20, and no
-blocked brand string.
+Placeholder text stays allowed. It is still scanned for blocked names and for
+forbidden characters. Non-placeholder text also needs the VS-001-S0 book-text
+gate: the pinned approval line must already exist byte-for-byte on the base,
+source pages 8-20, and no blocked name.
 
 A minimal append-only guard compares Metrics/tasks.jsonl to a git base.
+The default base is origin/main, or the pinned main SHA when that ref is absent.
 Task 000-4 owns the full metrics append-only check and may take this over.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -28,21 +33,29 @@ APPROVAL_EVENTS = frozenset({"plan_approved"})
 
 UNAPPROVED = "UNAPPROVED"
 APPROVER_NAME = "Will Harris"
-# Book-text entries may cite only this task's plan_approved line.
+# Book-text entries may cite only this task's pinned plan_approved line.
 BOOK_TEXT_TASK_ID = "VS-001-S0"
 BOOK_PAGE_MIN = 8
 BOOK_PAGE_MAX = 20
+BOOK_APPROVAL_LINE = 9
+# SHA-256 of Metrics/tasks.jsonl line 9, including its trailing newline.
+BOOK_APPROVAL_SHA256 = (
+    "d89102d4ab42dce11f2744d78627b8ffa91ca6fd2e14b1e2da2439b3cb682b02"
+)
+# main at the PR #4 merge. Used when origin/main cannot be resolved.
+PINNED_MAIN_SHA = "3086759cd3349ccbd6dedbc0866f194aae3c1edb"
 REF_RE = re.compile(r"^Metrics/tasks\.jsonl#L(0|[1-9][0-9]*)$")
 ID_RE = re.compile(r"^[A-Z0-9_]+$")
+ID_MAX = 64
 # Placeholder text stays allowed, including UNAPPROVED with no approval_ref.
 TEXT_RE = re.compile(r"^PLACEHOLDER_[A-Z0-9_]+$")
-SCHEMA_SUFFIX = ".schema.json"
+PLACEHOLDER_MAX = 200
+ALLOWED_SCHEMA = "Data/schemas/canon.schema.json"
+DATA_README = "Data/README.md"
 
 # pp.8-20 maker and model strings supplied for S0-1. The bare word Live is
-# not listed. Matching ignores case. A newline may sit between the letters of
-# one name. Any whitespace, including a newline, may separate the words of a
-# multi-word name. Word boundaries keep a longer ordinary word from matching.
-# A plural s, or a possessive 's or ’s, may follow the whole name.
+# not listed. Matching uses a letters-only projection with word boundaries.
+# A plural s or es, or a possessive apostrophe-s, may follow the whole name.
 BLOCKED_BRANDS = (
     "Ableton Live",
     "Dark Magic",
@@ -52,8 +65,50 @@ BLOCKED_BRANDS = (
     "Nike",
     "Cortez",
 )
-# Optional plural or possessive on the whole blocked name. Not a whitespace strip.
-_BRAND_SUFFIX = "(?:'s|\u2019s|s)?"
+
+# Explicit Cyrillic and Greek look-alikes. No confusables package.
+_CONFUSABLES = {
+    "\u0430": "a",
+    "\u0432": "b",
+    "\u0441": "c",
+    "\u0501": "d",
+    "\u0435": "e",
+    "\u0433": "r",
+    "\u04bb": "h",
+    "\u0456": "i",
+    "\u0457": "i",
+    "\u0458": "j",
+    "\u043a": "k",
+    "\u04cf": "l",
+    "\u043c": "m",
+    "\u043f": "n",
+    "\u043e": "o",
+    "\u0440": "p",
+    "\u0455": "s",
+    "\u0442": "t",
+    "\u0443": "y",
+    "\u0445": "x",
+    "\u051b": "q",
+    "\u051d": "w",
+    "\u0475": "v",
+    "\u0461": "w",
+    "\u03b1": "a",
+    "\u03b2": "b",
+    "\u03b5": "e",
+    "\u03b7": "n",
+    "\u03b9": "i",
+    "\u03ba": "k",
+    "\u03bc": "m",
+    "\u03bd": "v",
+    "\u03bf": "o",
+    "\u03c1": "p",
+    "\u03c4": "t",
+    "\u03c5": "u",
+    "\u03c7": "x",
+    "\u03c9": "w",
+    "\u03b6": "z",
+    "\u03b3": "y",
+}
 
 RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
 RULE_CANON_TAG_MISSING = "canon_tag_missing"
@@ -65,30 +120,91 @@ RULE_APPROVAL_REF_EVENT_NOT_APPROVAL = "approval_ref_event_not_approval"
 RULE_APPROVAL_REF_APPROVER_MISMATCH = "approval_ref_approver_mismatch"
 RULE_APPROVAL_REF_WORDS_EMPTY = "approval_ref_words_empty"
 RULE_APPROVAL_REF_TASK_MISMATCH = "approval_ref_task_mismatch"
+RULE_APPROVAL_REF_NOT_AT_BASE = "approval_ref_not_at_base"
 RULE_SOURCE_PAGES_OUT_OF_RANGE = "source_pages_out_of_range"
 RULE_BRAND_NAME_BLOCKED = "brand_name_blocked"
+RULE_FORBIDDEN_INVISIBLE = "forbidden_invisible_char"
+RULE_PLACEHOLDER_TOO_LONG = "placeholder_too_long"
 RULE_SCHEMA_FILE_NOT_SCHEMA_JSON = "schema_file_not_schema_json"
 RULE_METRICS_LINE_NOT_BYTE_IDENTICAL = "metrics_line_not_byte_identical"
 RULE_METRICS_BASE_UNREADABLE = "metrics_base_unreadable"
 RULE_METRICS_UNREADABLE = "metrics_unreadable"
+RULE_METRICS_APPROVAL_PIN_MISMATCH = "metrics_approval_pin_mismatch"
+RULE_METRICS_DUPLICATE_PLAN_APPROVED = "metrics_duplicate_plan_approved"
+RULE_METRICS_DUPLICATE_KEY = "metrics_duplicate_key"
 RULE_SCHEMA_INVALID = "schema_invalid"
 RULE_JSON_INVALID = "json_invalid"
+RULE_JSON_DUPLICATE_KEY = "json_duplicate_key"
+RULE_JSON_NESTING_TOO_DEEP = "json_nesting_too_deep"
 RULE_METRICS_JSON_INVALID = "metrics_json_invalid"
 RULE_DATA_UNREADABLE = "data_unreadable"
 RULE_DATA_FILE_NOT_JSON = "data_file_not_json"
+RULE_DATA_SYMLINK = "data_symlink"
+
+
+class DuplicateKeyError(Exception):
+    def __init__(self, key: str) -> None:
+        self.key = key
+
+
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    obj: dict[str, object] = {}
+    for key, value in pairs:
+        if key in obj:
+            raise DuplicateKeyError(str(key))
+        obj[key] = value
+    return obj
+
+
+def parse_json(text: str) -> object:
+    return json.loads(text, object_pairs_hook=reject_duplicate_keys)
+
+
+def fold_text(text: str) -> str:
+    folded = unicodedata.normalize("NFKC", text).casefold()
+    folded = unicodedata.normalize("NFD", folded)
+    out: list[str] = []
+    for char in folded:
+        if unicodedata.category(char) == "Mn":
+            continue
+        out.append(_CONFUSABLES.get(char, char))
+    return "".join(out)
+
+
+def _collapse(chars: list[str]) -> str:
+    return re.sub(r" +", " ", "".join(chars)).strip()
+
+
+def project_join(folded: str) -> str:
+    """Drop hyphens, dots, digits, and newlines so split letters join."""
+    chars: list[str] = []
+    for char in folded:
+        if char == "_":
+            chars.append(" ")
+        elif char in "\n\r":
+            continue
+        elif char.isalpha():
+            chars.append(char)
+        elif char.isspace():
+            chars.append(" ")
+    return _collapse(chars)
+
+
+def project_separate(folded: str) -> str:
+    """Treat every non-letter as a word boundary."""
+    chars: list[str] = []
+    for char in folded:
+        if char.isalpha():
+            chars.append(char)
+        else:
+            chars.append(" ")
+    return _collapse(chars)
 
 
 def _brand_pattern(phrase: str) -> re.Pattern[str]:
-    words = phrase.split(" ")
-    parts: list[str] = []
-    for word in words:
-        letters = [re.escape(char) for char in word]
-        parts.append(r"(?:\r?\n)?".join(letters))
-    body = r"\s+".join(parts)
-    return re.compile(
-        rf"(?<![A-Za-z0-9_]){body}{_BRAND_SUFFIX}(?![A-Za-z0-9_])",
-        re.IGNORECASE,
-    )
+    folded = project_join(fold_text(phrase))
+    body = " ".join(re.escape(word) for word in folded.split(" "))
+    return re.compile(rf"(?<![a-z]){body}(?:es|s)?(?![a-z])")
 
 
 BRAND_PATTERNS = tuple(_brand_pattern(phrase) for phrase in BLOCKED_BRANDS)
@@ -103,8 +219,9 @@ def repo_root() -> Path:
 
 
 def repo_relative(path: Path, repo: Path) -> str:
+    """Repo-relative path. Does not resolve symlinks."""
     try:
-        return path.resolve().relative_to(repo.resolve()).as_posix()
+        return path.absolute().relative_to(repo.absolute()).as_posix()
     except (OSError, ValueError):
         return path.as_posix()
 
@@ -113,16 +230,40 @@ def report(rule: str, entry: str, field: str) -> str:
     return f"FAIL rule={rule} entry={entry} field={field}"
 
 
-def entry_id(instance: object) -> str:
-    if isinstance(instance, dict):
-        value = instance.get("id")
-        if isinstance(value, str) and ID_RE.fullmatch(value):
-            return value
-    return "-"
+def has_forbidden_invisible(value: str) -> bool:
+    def flagged(text: str) -> bool:
+        for char in text:
+            if unicodedata.category(char) == "Cf" or char in "\u2028\u2029\r":
+                return True
+        return False
+
+    if flagged(value):
+        return True
+    normalized = unicodedata.normalize("NFKC", value)
+    return normalized != value and flagged(normalized)
 
 
 def has_blocked_brand(value: str) -> bool:
-    return any(pattern.search(value) for pattern in BRAND_PATTERNS)
+    folded = fold_text(value)
+    views = (project_join(folded), project_separate(folded))
+    return any(pattern.search(view) for view in views for pattern in BRAND_PATTERNS)
+
+
+def shown_entry(instance: object) -> str:
+    if not isinstance(instance, dict):
+        return "-"
+    value = instance.get("id")
+    if not isinstance(value, str) or not ID_RE.fullmatch(value):
+        return "-"
+    if len(value) > ID_MAX or has_blocked_brand(value):
+        return "-"
+    return value
+
+
+def safe_field(field: str) -> str:
+    if has_blocked_brand(field):
+        return "$"
+    return field
 
 
 def string_fields(value: object, field: str = "") -> list[tuple[str, str]]:
@@ -131,7 +272,10 @@ def string_fields(value: object, field: str = "") -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     if isinstance(value, dict):
         for key, item in value.items():
-            child = str(key) if not field else f"{field}.{key}"
+            key_text = str(key)
+            child = key_text if not field else f"{field}.{key_text}"
+            if isinstance(key, str):
+                found.append((child, key))
             found.extend(string_fields(item, child))
     elif isinstance(value, list):
         for index, item in enumerate(value):
@@ -143,7 +287,14 @@ def string_fields(value: object, field: str = "") -> list[tuple[str, str]]:
 def blocked_brand_field(instance: dict) -> str | None:
     for field, value in string_fields(instance):
         if has_blocked_brand(value):
-            return field
+            return safe_field(field)
+    return None
+
+
+def invisible_field(instance: dict) -> str | None:
+    for field, value in string_fields(instance):
+        if has_forbidden_invisible(value):
+            return safe_field(field)
     return None
 
 
@@ -156,21 +307,37 @@ def split_lines(data: bytes) -> list[bytes]:
     return parts
 
 
+def line_digest(raw: bytes) -> str:
+    return hashlib.sha256(raw + b"\n").hexdigest()
+
+
 def load_validator(schema_path: Path) -> Draft202012Validator:
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    schema = parse_json(schema_path.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
 
 
-def check_append_only(metrics_path: Path, base: str, root: Path) -> list[str]:
+def default_base(root: Path) -> str:
+    proc = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "--quiet", "origin/main"],
+        capture_output=True,
+    )
+    if proc.returncode == 0:
+        return "origin/main"
+    return PINNED_MAIN_SHA
+
+
+def read_base_lines(base: str, root: Path) -> tuple[list[str], list[bytes]]:
     proc = subprocess.run(
         ["git", "-C", str(root), "show", f"{base}:Metrics/tasks.jsonl"],
         capture_output=True,
     )
     if proc.returncode != 0:
-        return [report(RULE_METRICS_BASE_UNREADABLE, "-", "Metrics/tasks.jsonl")]
-    base_lines = split_lines(proc.stdout)
-    work_lines = split_lines(metrics_path.read_bytes())
+        return [report(RULE_METRICS_BASE_UNREADABLE, "-", "Metrics/tasks.jsonl")], []
+    return [], split_lines(proc.stdout)
+
+
+def check_append_only(work_lines: list[bytes], base_lines: list[bytes]) -> list[str]:
     failures = []
     for index, base_line in enumerate(base_lines, start=1):
         missing = index - 1 >= len(work_lines)
@@ -181,14 +348,52 @@ def check_append_only(metrics_path: Path, base: str, root: Path) -> list[str]:
     return failures
 
 
-def load_metrics(metrics_path: Path) -> list[object]:
+def load_metrics(metrics_path: Path) -> tuple[list[bytes], list[object], list[str]]:
+    raw_lines = split_lines(metrics_path.read_bytes())
     parsed: list[object] = []
-    for line in split_lines(metrics_path.read_bytes()):
+    failures: list[str] = []
+    for index, raw in enumerate(raw_lines, start=1):
         try:
-            parsed.append(json.loads(line.decode("utf-8")))
+            parsed.append(parse_json(raw.decode("utf-8")))
+        except DuplicateKeyError:
+            parsed.append(None)
+            failures.append(report(RULE_METRICS_DUPLICATE_KEY, "-", f"line_{index}"))
+        except RecursionError:
+            parsed.append(None)
+            failures.append(report(RULE_JSON_NESTING_TOO_DEEP, "-", f"line_{index}"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             parsed.append(None)
-    return parsed
+    failures.extend(metrics_policy(parsed, raw_lines))
+    return raw_lines, parsed, failures
+
+
+def metrics_policy(rows: list[object], raw_lines: list[bytes]) -> list[str]:
+    failures: list[str] = []
+    seen: dict[str, list[int]] = {}
+    for index, row in enumerate(rows, start=1):
+        if not isinstance(row, dict) or row.get("event") != "plan_approved":
+            continue
+        task = row.get("task_id")
+        if not isinstance(task, str):
+            continue
+        seen.setdefault(task, []).append(index)
+        if task != BOOK_TEXT_TASK_ID:
+            continue
+        digest = line_digest(raw_lines[index - 1])
+        if index != BOOK_APPROVAL_LINE or digest != BOOK_APPROVAL_SHA256:
+            failures.append(
+                report(RULE_METRICS_APPROVAL_PIN_MISMATCH, "-", f"line_{index}")
+            )
+    for indexes in seen.values():
+        if len(indexes) > 1:
+            failures.append(
+                report(
+                    RULE_METRICS_DUPLICATE_PLAN_APPROVED,
+                    "-",
+                    f"line_{indexes[1]}",
+                )
+            )
+    return failures
 
 
 def resolve_ref(ref: str, metrics: list[object]) -> str | None:
@@ -211,20 +416,31 @@ def resolve_ref(ref: str, metrics: list[object]) -> str | None:
     return None
 
 
-def approved_book_task(instance: dict, metrics: list[object]) -> bool:
+def book_approval_rule(
+    instance: dict,
+    metrics: list[object],
+    work_lines: list[bytes],
+    base_lines: list[bytes],
+) -> str | None:
     ref = instance.get("approval_ref")
     if not isinstance(ref, str):
-        return False
+        return RULE_APPROVAL_REF_TASK_MISMATCH
     match = REF_RE.fullmatch(ref)
     if match is None:
-        return False
+        return RULE_APPROVAL_REF_TASK_MISMATCH
     line_no = int(match.group(1))
-    if line_no < 1 or line_no > len(metrics):
-        return False
+    if line_no < 1 or line_no > len(metrics) or line_no - 1 >= len(work_lines):
+        return RULE_APPROVAL_REF_TASK_MISMATCH
     row = metrics[line_no - 1]
-    if not isinstance(row, dict):
-        return False
-    return row.get("task_id") == BOOK_TEXT_TASK_ID
+    if not isinstance(row, dict) or row.get("task_id") != BOOK_TEXT_TASK_ID:
+        return RULE_APPROVAL_REF_TASK_MISMATCH
+    if line_no != BOOK_APPROVAL_LINE:
+        return RULE_APPROVAL_REF_TASK_MISMATCH
+    if line_digest(work_lines[line_no - 1]) != BOOK_APPROVAL_SHA256:
+        return RULE_METRICS_APPROVAL_PIN_MISMATCH
+    if line_no - 1 >= len(base_lines) or base_lines[line_no - 1] != work_lines[line_no - 1]:
+        return RULE_APPROVAL_REF_NOT_AT_BASE
+    return None
 
 
 def pages_in_slice(instance: dict) -> bool:
@@ -243,7 +459,7 @@ def schema_field(error: object) -> str:
     path = getattr(error, "absolute_path", ())
     parts = [str(part) for part in path]
     if parts:
-        return ".".join(parts)
+        return safe_field(".".join(parts))
     return "$"
 
 
@@ -270,24 +486,22 @@ def check_tag_and_ref(
     return [report(rule, entry, "approval_ref")]
 
 
-def brand_failure(instance: dict, entry: str) -> list[str]:
-    field = blocked_brand_field(instance)
-    if field is None:
-        return []
-    shown = entry
-    if field == "id" or (shown != "-" and has_blocked_brand(shown)):
-        shown = "-"
-    return [report(RULE_BRAND_NAME_BLOCKED, shown, field)]
-
-
 def check_entry(
     instance: object,
     validator: Draft202012Validator,
     metrics: list[object],
+    work_lines: list[bytes],
+    base_lines: list[bytes],
 ) -> list[str]:
-    entry = entry_id(instance)
+    entry = shown_entry(instance)
     if not isinstance(instance, dict):
         return [report(RULE_SCHEMA_INVALID, entry, "$")]
+    hidden = invisible_field(instance)
+    if hidden is not None:
+        return [report(RULE_FORBIDDEN_INVISIBLE, entry, hidden)]
+    branded = blocked_brand_field(instance)
+    if branded is not None:
+        return [report(RULE_BRAND_NAME_BLOCKED, entry, branded)]
     schema_failures = [
         report(RULE_SCHEMA_INVALID, entry, schema_field(error))
         for error in validator.iter_errors(instance)
@@ -299,70 +513,68 @@ def check_entry(
         return tag_failures
     text = instance.get("text")
     if isinstance(text, str) and TEXT_RE.fullmatch(text):
+        if len(text) > PLACEHOLDER_MAX:
+            return [report(RULE_PLACEHOLDER_TOO_LONG, entry, "text")]
         return []
     if not isinstance(text, str):
         return [report(RULE_TEXT_NOT_PLACEHOLDER, entry, "text")]
-    # Non-placeholder text is allowed only when all three book-text conditions hold.
-    if not approved_book_task(instance, metrics):
-        return [report(RULE_APPROVAL_REF_TASK_MISMATCH, entry, "approval_ref")]
+    approval = book_approval_rule(instance, metrics, work_lines, base_lines)
+    if approval is not None:
+        return [report(approval, entry, "approval_ref")]
     if not pages_in_slice(instance):
         return [report(RULE_SOURCE_PAGES_OUT_OF_RANGE, entry, "source_pages")]
-    return brand_failure(instance, entry)
+    return []
 
 
-def classify_file(path: Path, repo: Path) -> tuple[list[Path], list[str]]:
-    if path.name.endswith(".json"):
-        return [path], []
-    return [], [report(RULE_DATA_FILE_NOT_JSON, "-", repo_relative(path, repo))]
-
-
-def schema_dir_file(path: Path, repo: Path) -> tuple[list[Path], list[str]]:
-    relative = repo_relative(path, repo)
-    if path.name.endswith(SCHEMA_SUFFIX):
-        try:
-            json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-            return [], [report(RULE_JSON_INVALID, "-", relative)]
-        return [], []
-    return [], [report(RULE_SCHEMA_FILE_NOT_SCHEMA_JSON, "-", relative)]
-
-
-def is_data_readme(candidate: Path, repo: Path) -> bool:
+def raw_text_failures(path: Path, relative: str) -> list[str]:
+    shown = safe_field(relative)
     try:
-        return candidate.resolve() == (repo / "Data" / "README.md").resolve()
+        data = path.read_bytes()
     except OSError:
-        return False
-
-
-def under_top_data_schemas(candidate: Path, repo: Path) -> bool:
-    """True only for files directly under the top-level Data/schemas folder."""
-    data_root = repo / "Data"
+        return [report(RULE_DATA_UNREADABLE, "-", shown)]
     try:
-        relative = candidate.resolve().relative_to(data_root.resolve())
-    except (OSError, ValueError):
-        return False
-    return bool(relative.parts) and relative.parts[0] == "schemas"
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return [report(RULE_DATA_UNREADABLE, "-", shown)]
+    if has_forbidden_invisible(text):
+        return [report(RULE_FORBIDDEN_INVISIBLE, "-", shown)]
+    if has_blocked_brand(text):
+        return [report(RULE_BRAND_NAME_BLOCKED, "-", shown)]
+    return []
+
+
+def under_data_schemas(relative: str) -> bool:
+    return relative == "Data/schemas" or relative.startswith("Data/schemas/")
 
 
 def consider_file(path: Path, repo: Path) -> tuple[list[Path], list[str]]:
-    if is_data_readme(path, repo):
-        return [], []
-    if under_top_data_schemas(path, repo):
-        return schema_dir_file(path, repo)
-    return classify_file(path, repo)
+    relative = repo_relative(path, repo)
+    if under_data_schemas(relative) and relative != ALLOWED_SCHEMA:
+        failures = [report(RULE_SCHEMA_FILE_NOT_SCHEMA_JSON, "-", safe_field(relative))]
+        failures.extend(raw_text_failures(path, relative))
+        return [], failures
+    if relative in {ALLOWED_SCHEMA, DATA_README}:
+        return [], raw_text_failures(path, relative)
+    if not path.name.endswith(".json"):
+        failures = [report(RULE_DATA_FILE_NOT_JSON, "-", safe_field(relative))]
+        failures.extend(raw_text_failures(path, relative))
+        return [], failures
+    return [path], []
 
 
-def entry_files(path: Path, repo: Path) -> tuple[list[Path], list[str]]:
+def walk_entries(path: Path, repo: Path) -> tuple[list[Path], list[str]]:
+    if path.is_symlink():
+        return [], [report(RULE_DATA_SYMLINK, "-", safe_field(repo_relative(path, repo)))]
     if not path.exists():
-        return [], [report(RULE_DATA_UNREADABLE, "-", repo_relative(path, repo))]
+        return [], [report(RULE_DATA_UNREADABLE, "-", safe_field(repo_relative(path, repo)))]
     if path.is_file():
         return consider_file(path, repo)
+    if not path.is_dir():
+        return [], [report(RULE_DATA_UNREADABLE, "-", safe_field(repo_relative(path, repo)))]
     files: list[Path] = []
     failures: list[str] = []
-    for candidate in sorted(path.rglob("*")):
-        if not candidate.is_file():
-            continue
-        found, errors = consider_file(candidate, repo)
+    for child in sorted(path.iterdir(), key=lambda item: item.name):
+        found, errors = walk_entries(child, repo)
         files.extend(found)
         failures.extend(errors)
     return files, failures
@@ -372,13 +584,28 @@ def check_file(
     path: Path,
     validator: Draft202012Validator,
     metrics: list[object],
+    work_lines: list[bytes],
+    base_lines: list[bytes],
     repo: Path,
 ) -> list[str]:
+    shown = safe_field(repo_relative(path, repo))
     try:
-        instance = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return [report(RULE_JSON_INVALID, "-", repo_relative(path, repo))]
-    return check_entry(instance, validator, metrics)
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return [report(RULE_JSON_INVALID, "-", shown)]
+    try:
+        instance = parse_json(text)
+    except DuplicateKeyError as exc:
+        field = exc.key if exc.key and not has_blocked_brand(exc.key) else "$"
+        return [report(RULE_JSON_DUPLICATE_KEY, "-", field)]
+    except RecursionError:
+        return [report(RULE_JSON_NESTING_TOO_DEEP, "-", shown)]
+    except json.JSONDecodeError:
+        return [report(RULE_JSON_INVALID, "-", shown)]
+    try:
+        return check_entry(instance, validator, metrics, work_lines, base_lines)
+    except RecursionError:
+        return [report(RULE_JSON_NESTING_TOO_DEEP, "-", shown)]
 
 
 def collect_entries(paths: list[Path], root: Path) -> tuple[list[Path], list[str]]:
@@ -386,7 +613,7 @@ def collect_entries(paths: list[Path], root: Path) -> tuple[list[Path], list[str
     files: list[Path] = []
     failures: list[str] = []
     for target in targets:
-        found, errors = entry_files(target, root)
+        found, errors = walk_entries(target, root)
         files.extend(found)
         failures.extend(errors)
     return files, failures
@@ -396,30 +623,46 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate canon Data entries.")
     parser.add_argument("--schema", type=Path)
     parser.add_argument("--metrics", type=Path)
-    parser.add_argument("--base", default="origin/main")
+    parser.add_argument("--base", default=None)
     parser.add_argument("paths", nargs="*", type=Path)
     args = parser.parse_args(argv)
 
     root = repo_root()
     schema_path = args.schema or (root / "Data" / "schemas" / "canon.schema.json")
     metrics_path = args.metrics or (root / "Metrics" / "tasks.jsonl")
+    base = args.base if args.base is not None else default_base(root)
 
     if not metrics_path.is_file():
         print(report(RULE_METRICS_UNREADABLE, "-", "Metrics/tasks.jsonl"))
         return 1
 
-    failures = check_append_only(metrics_path, args.base, root)
+    failures, base_lines = read_base_lines(base, root)
+    try:
+        work_lines, metrics, metric_failures = load_metrics(metrics_path)
+    except OSError:
+        print(report(RULE_METRICS_UNREADABLE, "-", "Metrics/tasks.jsonl"))
+        return 1
+    if base_lines:
+        failures.extend(check_append_only(work_lines, base_lines))
+    failures.extend(metric_failures)
     try:
         validator = load_validator(schema_path)
+    except RecursionError:
+        print(report(RULE_JSON_NESTING_TOO_DEEP, "-", "$"))
+        return 1
+    except DuplicateKeyError:
+        print(report(RULE_JSON_DUPLICATE_KEY, "-", "$"))
+        return 1
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, SchemaError):
         print(report(RULE_SCHEMA_INVALID, "-", "$"))
         return 1
 
-    metrics = load_metrics(metrics_path)
     files, entry_errors = collect_entries(args.paths, root)
     failures.extend(entry_errors)
     for path in files:
-        failures.extend(check_file(path, validator, metrics, root))
+        failures.extend(
+            check_file(path, validator, metrics, work_lines, base_lines, root)
+        )
 
     if failures:
         for line in failures:

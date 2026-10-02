@@ -11,10 +11,14 @@
     "id": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 64,
       "pattern": "^[A-Z0-9_]+$"
     },
     "canon_tag": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[A-Za-z0-9_]*$",
+      "description": "Short tag. The docs require the exact uppercase value UNAPPROVED when approval_ref is omitted, and do not enumerate other tags, so the pattern allows that alphabet rather than lowercase only. Empty fails canon_tag_empty in the validator."
     },
     "approval_ref": {
       "type": "string",
