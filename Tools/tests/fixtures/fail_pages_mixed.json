@@ -1,0 +1,10 @@
+{
+  "id": "ENTRY_PAGES_MIXED",
+  "canon_tag": "UNAPPROVED",
+  "approval_ref": "Metrics/tasks.jsonl#L9",
+  "source_pages": [
+    8,
+    21
+  ],
+  "text": "A neutral sentence with one page inside and one page outside."
+}

@@ -23,6 +23,14 @@
     "text": {
       "type": "string",
       "description": "Narrative text for this entry."
+    },
+    "source_pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer"
+      },
+      "description": "Non-empty array of integers. For non-placeholder text, Tools/canon_validator.py requires every page to be from 8 through 20 inclusive. Placeholder entries may omit this field."
     }
   }
 }
