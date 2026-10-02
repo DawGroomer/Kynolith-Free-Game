@@ -64,10 +64,11 @@ ALLOWED_SCHEMA = "Data/schemas/canon.schema.json"
 DATA_README = "Data/README.md"
 
 # pp.8-20 maker and model strings supplied for S0-1. The bare word Live is
-# not listed. On a folded copy, an optional run of whitespace, underscores,
-# dots, or hyphens may sit between any two letters, including none. A letter
-# may not sit immediately before the name. After it, an optional s, es, or
-# apostrophe-s may appear, and a letter may not sit immediately after that.
+# not listed. Matching uses a folded copy: NFKC,
+# casefold, category Mn dropped, then the confusables map. Between any two
+# letters, any run of non-letters is allowed, including none. The boundaries
+# are letter-only, so digits and underscores are separators. After the name,
+# an optional s, es, or apostrophe-s may appear.
 BLOCKED_BRANDS = (
     "Ableton Live",
     "Dark Magic",
@@ -90,6 +91,7 @@ _CONFUSABLES = {
     "\u0269": "i",
     "\u026a": "i",
     "\u0138": "k",
+    "\u1d0e": "n",
     "\u0142": "l",
     "\u01c0": "l",
     "\u0275": "o",
@@ -204,15 +206,16 @@ def fold_text(text: str) -> str:
     return "".join(out)
 
 
-# Whitespace, underscore, dot, or hyphen. Applied only between letters.
-_LETTER_GAP = r"[\s_.\-]*"
+# A letter is a Unicode letter. Digits and underscores are not letters.
+_LETTER = r"[^\W\d_]"
+_NONLETTER = r"[\W\d_]*"
 _BRAND_SUFFIX = "(?:es|s|'s|\u2019s)?"
 
 
 def _brand_pattern(phrase: str) -> re.Pattern[str]:
     letters = [char for char in fold_text(phrase) if char.isalpha()]
-    body = _LETTER_GAP.join(re.escape(char) for char in letters)
-    return re.compile(rf"(?<![a-z]){body}{_BRAND_SUFFIX}(?![a-z])")
+    body = _NONLETTER.join(re.escape(char) for char in letters)
+    return re.compile(rf"(?<!{_LETTER}){body}{_BRAND_SUFFIX}(?!{_LETTER})")
 
 
 BRAND_PATTERNS = tuple(_brand_pattern(phrase) for phrase in BLOCKED_BRANDS)

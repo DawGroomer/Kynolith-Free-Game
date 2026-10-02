@@ -141,6 +141,9 @@ FAIL_CASES = [
     ("fail_brand_gap_06.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_gap_07.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_gap_08.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_gap_star.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_digit_after.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_smallcap_n.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_cyrillic_i.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_suffix_x.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_suffix_digit.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
@@ -285,6 +288,13 @@ def check_brand_probes(problems: list[str]) -> None:
         "A ble ton",
         "AbletonLive",
         "DarkMagic",
+        "N*i*k*e",
+        "N/i/k/e",
+        "N'i'k'e",
+        "N1i2k3e",
+        "Nike2",
+        "2Nike",
+        "\u1d0eike",
     ]
     clear = [
         "live",
