@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -18,7 +19,6 @@ BASE = "8cf25ae349e7c0a7c1f344dcb3af5cd6188014a6"
 BASE_PROTECTED = "3086759cd3349ccbd6dedbc0866f194aae3c1edb"
 BASE_ARG = ["--base", BASE]
 PROTECTED = ["--base", BASE_PROTECTED]
-HEAD_ARG = ["--base", "HEAD"]
 OTHER_METRICS = [
     "--metrics",
     str(FIX / "metrics_other_task.jsonl"),
@@ -163,6 +163,23 @@ FAIL_CASES = [
     ("fail_book_tag_game.json", "book_text_must_be_unapproved", PROTECTED, 1, ["canon_tag"]),
     ("fail_dup_text.json", "json_duplicate_key", PROTECTED, 1, ["text"]),
     ("fail_dup_pages.json", "json_duplicate_key", PROTECTED, 1, ["source_pages"]),
+    ("fail_brand_letter_before.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_letter_after.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_forbid_u115f.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_forbid_u115f.json"]),
+    ("fail_forbid_u1160.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_forbid_u1160.json"]),
+    ("fail_forbid_u3164.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_forbid_u3164.json"]),
+    ("fail_forbid_uffa0.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_forbid_uffa0.json"]),
+    ("fail_forbid_u2800.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_forbid_u2800.json"]),
+    ("fail_forbid_u20dd.json", "forbidden_invisible_char", PROTECTED, 1, ["Tools/tests/fixtures/fail_forbid_u20dd.json"]),
+    ("fail_brand_capital_nu.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_small_nu.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u0274.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u03f9.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u03f2.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u2ca4.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u2ca5.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u1d04.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u1d0b.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
 ]
 
 # Validator stdout must not contain these. Entry ids are chosen so they do not.
@@ -180,6 +197,17 @@ HIDDEN_TOKENS = {
     "fail_brand_id.json": ["NIKE", "Nike"],
     "fail_book_other.json": ["KG-OTHER-000", "A different task approval"],
     "fail_book_near.json": ["VS-001-S0-1", "A near miss approval"],
+    "fail_brand_letter_before.json": ["Nike"],
+    "fail_brand_letter_after.json": ["Nike"],
+    "fail_brand_capital_nu.json": ["Nike"],
+    "fail_brand_small_nu.json": ["Ableton", "Live"],
+    "fail_brand_u0274.json": ["Nike"],
+    "fail_brand_u03f9.json": ["Cortez"],
+    "fail_brand_u03f2.json": ["Cortez"],
+    "fail_brand_u2ca4.json": ["Cortez"],
+    "fail_brand_u2ca5.json": ["Cortez"],
+    "fail_brand_u1d04.json": ["Cortez"],
+    "fail_brand_u1d0b.json": ["Nike"],
 }
 
 
@@ -367,6 +395,10 @@ def expect_fail(proc: subprocess.CompletedProcess[str], expected: list[str], lab
 def main() -> int:
     problems: list[str] = []
     module = load_validator()
+    if module.fold_text("\u03bd") != "v":
+        problems.append("fold_text of U+03BD is not v")
+    if module.fold_text("\u039d") != "n":
+        problems.append("fold_text of U+039D is not n")
     approved = json.loads((FIX / "pass_approved.json").read_text(encoding="utf-8"))
     if approved.get("text") != "PLACEHOLDER_TEXT_001":
         problems.append("pass_approved.json text is not the placeholder")
@@ -594,13 +626,72 @@ def main() -> int:
     if set(module.ALLOWED_CANON_TAGS) != expected_tags:
         problems.append("canon tag allowlist does not match the closed set")
 
-    book_at_head = run([str(FIX / "pass_book.json"), *HEAD_ARG])
-    expect_fail(
-        book_at_head,
-        ["FAIL rule=metrics_base_not_ancestor entry=- field=Metrics/tasks.jsonl"],
-        "base HEAD is not an ancestor of origin/main",
-        problems,
+    throwaway_env = os.environ.copy()
+    throwaway_env["GIT_AUTHOR_NAME"] = "Canon Fixture"
+    throwaway_env["GIT_AUTHOR_EMAIL"] = "canon-fixture@example.com"
+    throwaway_env["GIT_COMMITTER_NAME"] = "Canon Fixture"
+    throwaway_env["GIT_COMMITTER_EMAIL"] = "canon-fixture@example.com"
+    throwaway_env["GIT_AUTHOR_DATE"] = "2026-10-03 00:00:00 +0000"
+    throwaway_env["GIT_COMMITTER_DATE"] = "2026-10-03 00:00:00 +0000"
+    throwaway_cmd = [
+        "git",
+        "-C",
+        str(ROOT),
+        "commit-tree",
+        "HEAD^{tree}",
+        "-p",
+        "HEAD",
+        "-m",
+        "x",
+    ]
+    created = subprocess.run(
+        throwaway_cmd,
+        capture_output=True,
+        text=True,
+        env=throwaway_env,
     )
+    print("COMMAND", " ".join(throwaway_cmd))
+    print("EXIT", created.returncode)
+    print("STDOUT")
+    sys.stdout.write(created.stdout)
+    if created.stdout and not created.stdout.endswith("\n"):
+        print()
+    print("STDERR")
+    sys.stdout.write(created.stderr)
+    if created.stderr and not created.stderr.endswith("\n"):
+        print()
+    print("---")
+    throwaway_sha = created.stdout.strip()
+    sha_ok = (
+        created.returncode == 0
+        and len(throwaway_sha) == 40
+        and all(char in "0123456789abcdef" for char in throwaway_sha)
+    )
+    if not sha_ok:
+        problems.append("throwaway commit could not be created")
+    else:
+        cat_cmd = ["git", "-C", str(ROOT), "cat-file", "-t", throwaway_sha]
+        typed = subprocess.run(cat_cmd, capture_output=True, text=True)
+        print("COMMAND", " ".join(cat_cmd))
+        print("EXIT", typed.returncode)
+        print("STDOUT")
+        sys.stdout.write(typed.stdout)
+        if typed.stdout and not typed.stdout.endswith("\n"):
+            print()
+        print("STDERR")
+        sys.stdout.write(typed.stderr)
+        if typed.stderr and not typed.stderr.endswith("\n"):
+            print()
+        print("---")
+        if typed.returncode != 0 or typed.stdout.strip() != "commit":
+            problems.append("throwaway commit cat-file did not print commit")
+        book_throwaway = run([str(FIX / "pass_book.json"), "--base", throwaway_sha])
+        expect_fail(
+            book_throwaway,
+            ["FAIL rule=metrics_base_not_ancestor entry=- field=Metrics/tasks.jsonl"],
+            "throwaway commit is not an ancestor of main",
+            problems,
+        )
     book_off_base = run([str(FIX / "pass_book.json"), *PROTECTED])
     expect_fail(
         book_off_base,

@@ -64,10 +64,12 @@ ALLOWED_SCHEMA = "Data/schemas/canon.schema.json"
 DATA_README = "Data/README.md"
 
 # pp.8-20 maker and model strings supplied for S0-1. The bare word Live is
-# not listed. Matching uses a folded copy: NFKC,
-# casefold, category Mn dropped, then the confusables map. Between any two
-# letters, any run of non-letters is allowed, including none. The boundaries
-# are letter-only, so digits and underscores are separators. After the name,
+# not listed. Matching uses a folded copy: a case-sensitive map (U+03F9 and
+# U+03F2 to c) before NFKC, then NFKC, a case-sensitive map (U+039D to n)
+# before casefold, casefold, category Mn dropped, then the confusables map.
+# Between any two letters, any run of non-letters is
+# allowed, including none. The boundaries are [a-z] on the folded text, so a
+# digit, an underscore, or any other character is a separator. After the name,
 # an optional s, es, or apostrophe-s may appear.
 BLOCKED_BRANDS = (
     "Ableton Live",
@@ -80,8 +82,8 @@ BLOCKED_BRANDS = (
 )
 
 # Look-alikes for letters in the blocked names. Applied to a copy, after
-# NFKC and casefold. Fullwidth and mathematical letters fold via NFKC.
-# No confusables package.
+# the pre-NFKC map, NFKC, the pre-casefold map, and casefold. Fullwidth and
+# mathematical letters fold via NFKC. No confusables package.
 _CONFUSABLES = {
     # Latin
     "\u0251": "a",
@@ -91,6 +93,9 @@ _CONFUSABLES = {
     "\u0269": "i",
     "\u026a": "i",
     "\u0138": "k",
+    "\u0274": "n",
+    "\u1d04": "c",
+    "\u1d0b": "k",
     "\u1d0e": "n",
     "\u0142": "l",
     "\u01c0": "l",
@@ -139,6 +144,9 @@ _CONFUSABLES = {
     "\u03c9": "w",
     "\u03b6": "z",
     "\u03b3": "y",
+    # Coptic sima. U+2CA4 casefolds to U+2CA5 before this table is applied.
+    "\u2ca4": "c",
+    "\u2ca5": "c",
 }
 
 RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
@@ -194,9 +202,27 @@ def parse_json(text: str) -> object:
     return json.loads(text, object_pairs_hook=reject_duplicate_keys)
 
 
+# Applied before NFKC. NFKC turns U+03F9 and U+03F2 into sigma, so a later
+# table entry is never reached.
+_PRE_NFKC = {
+    "\u03f9": "c",
+    "\u03f2": "c",
+}
+
+# Applied after NFKC and before casefold. U+039D casefolds to U+03BD, and
+# U+03BD is already mapped to v, so a confusables entry for U+039D is never
+# reached. This map is the one that makes capital Nu fold to n.
+_PRE_CASEFOLD = {
+    "\u039d": "n",
+}
+
+
 def fold_text(text: str) -> str:
     """Build a new string for brand matching. The caller's text stays as it was."""
-    folded = unicodedata.normalize("NFKC", text).casefold()
+    folded = "".join(_PRE_NFKC.get(char, char) for char in text)
+    folded = unicodedata.normalize("NFKC", folded)
+    folded = "".join(_PRE_CASEFOLD.get(char, char) for char in folded)
+    folded = folded.casefold()
     folded = unicodedata.normalize("NFD", folded)
     out: list[str] = []
     for char in folded:
@@ -206,8 +232,7 @@ def fold_text(text: str) -> str:
     return "".join(out)
 
 
-# A letter is a Unicode letter. Digits and underscores are not letters.
-_LETTER = r"[^\W\d_]"
+# The gap between folded letters is unchanged. Boundaries are [a-z] only.
 _NONLETTER = r"[\W\d_]*"
 _BRAND_SUFFIX = "(?:es|s|'s|\u2019s)?"
 
@@ -215,7 +240,7 @@ _BRAND_SUFFIX = "(?:es|s|'s|\u2019s)?"
 def _brand_pattern(phrase: str) -> re.Pattern[str]:
     letters = [char for char in fold_text(phrase) if char.isalpha()]
     body = _NONLETTER.join(re.escape(char) for char in letters)
-    return re.compile(rf"(?<!{_LETTER}){body}{_BRAND_SUFFIX}(?!{_LETTER})")
+    return re.compile(rf"(?<![a-z]){body}{_BRAND_SUFFIX}(?![a-z])")
 
 
 BRAND_PATTERNS = tuple(_brand_pattern(phrase) for phrase in BLOCKED_BRANDS)
@@ -241,10 +266,28 @@ def report(rule: str, entry: str, field: str) -> str:
     return f"FAIL rule={rule} entry={entry} field={field}"
 
 
+# Not category Cf. Forbidden on their own, on the raw text and on NFKC.
+# U+115F and U+1160 are Hangul fillers. U+3164 and U+FFA0 are fillers too
+# (NFKC maps both to U+1160). U+2800 is braille blank. U+20DD is an
+# enclosing mark.
+_FORBIDDEN_EXPLICIT = frozenset(
+    {
+        "\u115f",
+        "\u1160",
+        "\u3164",
+        "\uffa0",
+        "\u2800",
+        "\u20dd",
+    }
+)
+
+
 def has_forbidden_invisible(value: str) -> bool:
     def flagged(text: str) -> bool:
         for char in text:
             if unicodedata.category(char) == "Cf" or char in "\u2028\u2029\r":
+                return True
+            if char in _FORBIDDEN_EXPLICIT:
                 return True
         return False
 
@@ -647,8 +690,8 @@ def check_file(
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return [report(RULE_JSON_INVALID, "-", shown)]
-    # Cf, U+2028, U+2029, and a bare CR on the raw text, before JSON parsing.
-    # json.loads rejects a leading U+FEFF by itself.
+    # Cf, U+2028, U+2029, a bare CR, and _FORBIDDEN_EXPLICIT on the raw text,
+    # before JSON parsing. json.loads rejects a leading U+FEFF by itself.
     if has_forbidden_invisible(text):
         return [report(RULE_FORBIDDEN_INVISIBLE, "-", shown)]
     try:
