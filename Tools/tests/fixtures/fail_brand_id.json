@@ -1,0 +1,10 @@
+{
+  "id": "NIKE",
+  "canon_tag": "UNAPPROVED",
+  "approval_ref": "Metrics/tasks.jsonl#L9",
+  "source_pages": [
+    8,
+    20
+  ],
+  "text": "A neutral sentence with a marked id and ordinary words."
+}

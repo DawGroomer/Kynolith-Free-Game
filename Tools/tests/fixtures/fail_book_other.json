@@ -1,0 +1,10 @@
+{
+  "id": "ENTRY_BOOK_OTHER",
+  "canon_tag": "UNAPPROVED",
+  "approval_ref": "Metrics/tasks.jsonl#L8",
+  "source_pages": [
+    8,
+    20
+  ],
+  "text": "A neutral sentence citing another task."
+}

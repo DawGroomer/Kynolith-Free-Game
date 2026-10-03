@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Kynolith canon entry",
-  "description": "One canon or narrative entry stored in Data/ JSON. canon_tag is a string. The only tag that may omit approval_ref is the exact value UNAPPROVED. Other tag values are not enumerated. approval_ref resolution is checked by Tools/canon_validator.py.",
+  "description": "One canon or narrative entry stored in Data/ JSON. canon_tag is a string of at most 32 characters. The allowlist is exactly CANON, GAME CANON, and UNAPPROVED. The only tag that may omit approval_ref is the exact value UNAPPROVED. approval_ref resolution is checked by Tools/canon_validator.py.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,10 +11,13 @@
     "id": {
       "type": "string",
       "minLength": 1,
+      "maxLength": 64,
       "pattern": "^[A-Z0-9_]+$"
     },
     "canon_tag": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 32,
+      "description": "At most 32 characters. Allowed values are exactly CANON, GAME CANON, and UNAPPROVED. GAME CANON includes a space. Empty fails canon_tag_empty. Any other value fails canon_tag_not_allowed."
     },
     "approval_ref": {
       "type": "string",
@@ -23,6 +26,14 @@
     "text": {
       "type": "string",
       "description": "Narrative text for this entry."
+    },
+    "source_pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "integer"
+      },
+      "description": "Non-empty array of integers. For non-placeholder text, Tools/canon_validator.py requires every page to be from 8 through 20 inclusive. Placeholder entries may omit this field."
     }
   }
 }
