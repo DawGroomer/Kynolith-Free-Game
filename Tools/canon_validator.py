@@ -64,9 +64,10 @@ ALLOWED_SCHEMA = "Data/schemas/canon.schema.json"
 DATA_README = "Data/README.md"
 
 # pp.8-20 maker and model strings supplied for S0-1. The bare word Live is
-# not listed. Matching uses a folded copy: NFKC, a case-sensitive map
-# (U+039D to n) before casefold, casefold, category Mn dropped, then the
-# confusables map. Between any two letters, any run of non-letters is
+# not listed. Matching uses a folded copy: a case-sensitive map (U+03F9 and
+# U+03F2 to c) before NFKC, then NFKC, a case-sensitive map (U+039D to n)
+# before casefold, casefold, category Mn dropped, then the confusables map.
+# Between any two letters, any run of non-letters is
 # allowed, including none. The boundaries are [a-z] on the folded text, so a
 # digit, an underscore, or any other character is a separator. After the name,
 # an optional s, es, or apostrophe-s may appear.
@@ -81,8 +82,8 @@ BLOCKED_BRANDS = (
 )
 
 # Look-alikes for letters in the blocked names. Applied to a copy, after
-# NFKC, the pre-casefold map, and casefold. Fullwidth and mathematical
-# letters fold via NFKC. No confusables package.
+# the pre-NFKC map, NFKC, the pre-casefold map, and casefold. Fullwidth and
+# mathematical letters fold via NFKC. No confusables package.
 _CONFUSABLES = {
     # Latin
     "\u0251": "a",
@@ -93,6 +94,8 @@ _CONFUSABLES = {
     "\u026a": "i",
     "\u0138": "k",
     "\u0274": "n",
+    "\u1d04": "c",
+    "\u1d0b": "k",
     "\u1d0e": "n",
     "\u0142": "l",
     "\u01c0": "l",
@@ -141,6 +144,9 @@ _CONFUSABLES = {
     "\u03c9": "w",
     "\u03b6": "z",
     "\u03b3": "y",
+    # Coptic sima. U+2CA4 casefolds to U+2CA5 before this table is applied.
+    "\u2ca4": "c",
+    "\u2ca5": "c",
 }
 
 RULE_TEXT_NOT_PLACEHOLDER = "text_not_placeholder"
@@ -196,6 +202,13 @@ def parse_json(text: str) -> object:
     return json.loads(text, object_pairs_hook=reject_duplicate_keys)
 
 
+# Applied before NFKC. NFKC turns U+03F9 and U+03F2 into sigma, so a later
+# table entry is never reached.
+_PRE_NFKC = {
+    "\u03f9": "c",
+    "\u03f2": "c",
+}
+
 # Applied after NFKC and before casefold. U+039D casefolds to U+03BD, and
 # U+03BD is already mapped to v, so a confusables entry for U+039D is never
 # reached. This map is the one that makes capital Nu fold to n.
@@ -206,7 +219,8 @@ _PRE_CASEFOLD = {
 
 def fold_text(text: str) -> str:
     """Build a new string for brand matching. The caller's text stays as it was."""
-    folded = unicodedata.normalize("NFKC", text)
+    folded = "".join(_PRE_NFKC.get(char, char) for char in text)
+    folded = unicodedata.normalize("NFKC", folded)
     folded = "".join(_PRE_CASEFOLD.get(char, char) for char in folded)
     folded = folded.casefold()
     folded = unicodedata.normalize("NFD", folded)

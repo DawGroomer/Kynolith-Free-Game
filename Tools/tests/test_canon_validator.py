@@ -174,6 +174,12 @@ FAIL_CASES = [
     ("fail_brand_capital_nu.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_small_nu.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
     ("fail_brand_u0274.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u03f9.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u03f2.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u2ca4.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u2ca5.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u1d04.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
+    ("fail_brand_u1d0b.json", "brand_name_blocked", PROTECTED, 1, ["text"]),
 ]
 
 # Validator stdout must not contain these. Entry ids are chosen so they do not.
@@ -196,6 +202,12 @@ HIDDEN_TOKENS = {
     "fail_brand_capital_nu.json": ["Nike"],
     "fail_brand_small_nu.json": ["Ableton", "Live"],
     "fail_brand_u0274.json": ["Nike"],
+    "fail_brand_u03f9.json": ["Cortez"],
+    "fail_brand_u03f2.json": ["Cortez"],
+    "fail_brand_u2ca4.json": ["Cortez"],
+    "fail_brand_u2ca5.json": ["Cortez"],
+    "fail_brand_u1d04.json": ["Cortez"],
+    "fail_brand_u1d0b.json": ["Nike"],
 }
 
 
